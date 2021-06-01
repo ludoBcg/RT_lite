@@ -1,6 +1,8 @@
 # RT_lite
 A collection of lighting algorithms for real-time rendering with OpenGL
 
+![fig_1](https://user-images.githubusercontent.com/84736834/120381272-83a70e80-c322-11eb-9cc0-5e6a17b77596.png)
+
 
 ## 1. GOALS AND CONTENT
 
