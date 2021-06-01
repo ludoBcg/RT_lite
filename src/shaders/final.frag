@@ -33,6 +33,7 @@ void main()
 
 
 	frag_color = vec4(color.rgb * ao.rgb, 1.0);
+	//frag_color = vec4(color.rgb + ao.rgb, 1.0);
 
 
 

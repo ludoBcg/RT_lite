@@ -118,7 +118,8 @@ int m_envMapType = 0;               /*!< environment mapping type: reflection = 
 bool m_isAOMapOn = false;           /*!< ambient occlusion mapping on  */
 bool m_isSimTransmitOn = false;     /*!< simulate transmission on  */
 bool m_isTSDOn = false;             /*!< texture space diffusion on  */
-bool m_isSSAOOn = false;            /*!< screen-scpae ambient occlusion on  */
+bool m_isSSAOOn = false;            /*!< screen-space ambient occlusion on  */
+bool m_isSSDOOn = false;            /*!< screen-space directional occlusion on  */
 
 
 int m_filterWidth = 2;
@@ -139,7 +140,8 @@ const char *m_fileUVMeshList[] =    { "bunny_UV",
                                       "head_UV",
                                       "suzanne_UV" };
 const char *m_filePBRMeshList[] =   { "grenade_PBR",
-                                      "cerberus_PBR"  };
+                                      "cerberus_PBR",
+                                      "matball_PBR" };
 
 static int m_fileTex = 0;
 const char *m_fileTexList[] =       { "UV_template",
@@ -284,11 +286,10 @@ void initScene(TriMesh *_triMesh)
     m_camPos = glm::vec3(0.0f, m_radScene*0.6f, m_radScene*3.0f);
     m_lightSpherePos = m_lightSpherePosInit = glm::vec3(M_PI*0.5f, 0.0f, m_radScene*6.0f);
     // init camera
-    m_camera.init(/*m_radScene*/ 0.01f, m_radScene*8.0f, 45.0f, 1.0f, m_winWidth, m_winHeight, m_camPos, m_centerCoords, 0);
+    m_camera.init(/*m_radScene*/ 0.01f, m_radScene*8.0f, 45.0f, 1.0f, m_winWidth, m_winHeight, m_camPos, glm::vec3(0.0f, 0.0f, 0.0f), 0); 
     m_cstProjMatrix = m_camera.getProjectionMatrix();
     // init light camera
-    m_cameraLight.init(m_lightCamNearRad, m_lightCamNearRad + m_lightCamFarRad, 45.0f, 1.0f, m_winWidth, m_winHeight, sphericalToEuclidean(m_lightSpherePos) + m_centerCoords, m_centerCoords, m_lightType, m_radScene);
-
+    m_cameraLight.init(m_lightSpherePos.z - m_lightCamNearRad, m_lightSpherePos.z + m_lightCamFarRad, 45.0f, 1.0f, m_winWidth, m_winHeight, sphericalToEuclidean(m_lightSpherePos) + m_centerCoords, m_centerCoords, m_lightType, m_radScene);
     // init trackball
     m_trackball.init(m_winWidth, m_winHeight);
 }
@@ -459,7 +460,6 @@ void displayLighting()
         m_drawFloor->draw(m_programLighting, modelMat, viewMat, projMat, sphericalToEuclidean(m_lightSpherePos), m_camPos, m_lightCol, lightSpaceMat, m_maxDistLight);
 
 
-
     if(m_isEnvMapOn && !m_isTSDOn)
     {
         glm::mat4 v = glm::mat4(glm::mat3( m_camera.getViewMatrix() )) * m_modelMatrix;
@@ -601,7 +601,7 @@ else
 
 void displaySSDO()
 {
-    if( m_isSSAOOn )
+    if( m_isSSDOOn )
     {
 
         // bind dedicated FBO
@@ -647,7 +647,7 @@ glViewport(0, 0, m_winWidth, m_winHeight);
 glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 // Draw screen Texture + SSAO
-//m_drawQuad->drawScreenQuadFinal(m_programQuadFinal, modelMat, viewMat, projMat, m_BlurTex, m_screenTex);
+m_drawQuad->drawScreenQuadFinal(m_programQuadFinal, modelMat, viewMat, projMat, m_BlurTex, m_screenTex);
 
 
 if(m_isBackgroundWhite)
@@ -655,7 +655,7 @@ if(m_isBackgroundWhite)
 else
     glClearColor(0.0f, 0.0f, 0.0f, 0.0);
 
-        m_drawQuad->drawScreenQuad(m_programQuad, /*m_SSDOTex*/m_BlurTex, false); 
+        //m_drawQuad->drawScreenQuad(m_programQuad, /*m_SSDOTex*/m_BlurTex, false); 
     }
 
 }
@@ -704,7 +704,7 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
 
         // re-init light source position
         m_lightSpherePos = m_lightSpherePosInit;
-        m_cameraLight.init(m_lightCamNearRad, m_lightCamFarRad, 45.0f, 1.0f, m_winWidth, m_winHeight, sphericalToEuclidean(m_lightSpherePos) + m_centerCoords, m_centerCoords, m_lightType, m_radScene);
+        m_cameraLight.init(m_lightSpherePos.z - m_lightCamNearRad, m_lightSpherePos.z + m_lightCamFarRad, 45.0f, 1.0f, m_winWidth, m_winHeight, sphericalToEuclidean(m_lightSpherePos) + m_centerCoords, m_centerCoords, m_lightType, m_radScene);
     }
 
     // Arrow keys for light source position control
@@ -877,8 +877,8 @@ void runGUI()
                 else
                 {
                     // slider for light radius
-                    ImGui::SliderFloat("distance to scene", &m_lightSpherePos.z, m_minDistLight, m_maxDistLight, "%.2f");
-                    m_cameraLight.init(m_lightSpherePos.z - m_lightCamNearRad, m_lightSpherePos.z + m_lightCamFarRad, 45.0f, 1.0f, m_winWidth, m_winHeight, sphericalToEuclidean(m_lightSpherePos)+m_centerCoords, m_centerCoords, m_lightType, m_radScene);
+                    //ImGui::SliderFloat("distance to scene", &m_lightSpherePos.z, m_minDistLight, m_maxDistLight, "%.2f");
+                    //m_cameraLight.init(m_lightSpherePos.z - m_lightCamNearRad, m_lightSpherePos.z + m_lightCamFarRad, 45.0f, 1.0f, m_winWidth, m_winHeight, sphericalToEuclidean(m_lightSpherePos)+m_centerCoords, m_centerCoords, m_lightType, m_radScene);
                 }
 
                 ImGui::EndTabItem();
@@ -953,6 +953,14 @@ void runGUI()
                         m_drawMesh->loadMetalMap( modelDir + "tex_cerberus/Cerberus_M.png" );
                         m_drawMesh->loadNormalMap( modelDir + "tex_cerberus/Cerberus_N.png" );
                     }
+                    else if (m_modelType == 2 && m_fileMesh == 2)
+                    {
+                        m_drawMesh->loadAlbedoTex( modelDir + "tex_matball/Matball_A.png" );
+                        m_drawMesh->loadGlossMap( modelDir + "tex_matball/Matball_R.png" );
+                        m_drawMesh->loadMetalMap( modelDir + "tex_matball/Matball_M.png" );
+                        m_drawMesh->loadNormalMap( modelDir + "tex_matball/Matball_N.png" );
+                        m_drawMesh->loadAmbientMap( modelDir + "tex_matball/Matball_AO.png" );
+                    }
 
                     // setup floor quad rendering
                     m_drawFloor = new DrawableMesh;
@@ -1009,7 +1017,7 @@ void runGUI()
                 m_drawMesh->setNormalMapFlag(m_isNormalMapOn);
             if(ImGui::Checkbox("Metal and/or gloss Map ", &m_isPBRMapOn) )
                 m_drawMesh->setPBRFlag(m_isPBRMapOn);
-            if(m_fileMesh == 0)
+            if(m_fileMesh == 0 || m_fileMesh == 2)
                 if(ImGui::Checkbox("AO Map ", &m_isAOMapOn) )
                     m_drawMesh->setAmbMapFlag(m_isAOMapOn);
 
@@ -1077,6 +1085,9 @@ void runGUI()
 
         // Shadow mapping checkbox
         ImGui::Checkbox("SSAO", &m_isSSAOOn);
+
+        // Shadow mapping checkbox
+        ImGui::Checkbox("SSDO", &m_isSSDOOn);
 
     } // end "Settings"
     else
@@ -1156,12 +1167,12 @@ int main(int argc, char** argv)
         // render G-buffer
         displayGBuffering();
         // render lighting
-        displayLighting(); 
+        displayLighting();
         // render scene
         displayTSD();
-        // render screen
+        // apply screen space effects
         displaySSAO(); 
-        //displaySSDO();
+        displaySSDO();
 
         // render GUI
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
