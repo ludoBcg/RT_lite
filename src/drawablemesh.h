@@ -242,7 +242,7 @@ class DrawableMesh
 
         void drawScreenQuadSSAO(GLuint _program, GLuint _posTex, GLuint _normalTex, float _radius, float _screenWidth, float _screenHeight);
         void drawScreenQuadSSDO(GLuint _program, glm::mat4 _modelMat, glm::mat4 _viewMat, glm::mat4 _projMat, GLuint _posTex, GLuint _normalTex, GLuint _screenTex, float _radius, float _screenWidth, float _screenHeight);
-        void drawScreenQuadFinal(GLuint _program, glm::mat4 _modelMat, glm::mat4 _viewMat, glm::mat4 _projMat, GLuint _ssaotex, GLuint _screenTex );  // !! @ WIP !!
+        void drawScreenQuadFinal(GLuint _program, glm::mat4 _modelMat, glm::mat4 _viewMat, glm::mat4 _projMat, GLuint _ssaotex, GLuint _screenTex, int _occType );  // !! @ WIP !!
         void drawTex(GLuint _program, glm::mat4 _modelMat, glm::mat4 _viewMat, glm::mat4 _projMat, GLuint _tex );  // !! @ WIP !!
 
         /*!

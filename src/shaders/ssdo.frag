@@ -125,7 +125,7 @@ void main()
 	frag_color = vec4( directionalLight.rgb, 1.0);
 	//frag_color = vec4(1.0, 0.0, 0.0, 1.0);
 	
-	frag_color.rgb = (indirectLight/2.0) / kernelSize;
+	//frag_color.rgb = (indirectLight/2.0) / kernelSize;
 	frag_color.rgb = indirectLight;
 	//FragColor.a = pow(ao / kernelSize, 2); //artificial amplification
 

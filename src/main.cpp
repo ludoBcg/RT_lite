@@ -80,8 +80,10 @@ GLuint m_screenFBO;             /*!< FBO for screen-space processing: renders co
 GLuint m_screenTex;             /*!< Destination texture for screen-space processing (stores final lighting result) */
 GLuint m_SSAOFBO;               /*!< FBO for SSAO processing: renders SSAO (as color component) into m_SSAOTex */
 GLuint m_SSAOTex;               /*!< Screen-texture to store SSAO result */
-GLuint m_BlurFBO;               /*!< FBO for SSAO blurring: renders blured SSAO (as color component) into m_BlurTex */    
+GLuint m_BlurFBO;               /*!< FBO for SSAO blurring: renders blured SSAO (as color component) into m_BlurTex */   
+GLuint m_BlurFBO2;              /*!< FBO for SSDO blurring: renders blured SSDO (as color component) into m_BlurTex2 */    
 GLuint m_BlurTex;               /*!< Screen-texture to store blurred SSAO */
+GLuint m_BlurTex2;              /*!< Screen-texture to store blurred SSDO */
 GLuint m_SSDOFBO;               /*!< FBO for SSDO renders SSDO (as color component) into m_SSDOTex */    
 GLuint m_SSDOTex;               /*!< Screen-texture to store SSDO */
 
@@ -255,6 +257,9 @@ void initialize()
     // build FBO and texture output for blurring of SSAO texture
     buildScreenFBOandTex(&m_BlurFBO, &m_BlurTex, TEX_WIDTH, TEX_HEIGHT, false, false);
 
+    // build FBO and texture output for blurring of SSAO texture
+    buildScreenFBOandTex(&m_BlurFBO2, &m_BlurTex2, TEX_WIDTH, TEX_HEIGHT, false, false);
+
     // build FBO and texture output for SSDO
     buildScreenFBOandTex(&m_SSDOFBO, &m_SSDOTex, TEX_WIDTH, TEX_HEIGHT, true, false);
 
@@ -367,7 +372,7 @@ void displayShadowMap()
 void displayGBuffering()
 {
     // generate G-buffer only if SSAO is activated
-    if( m_isSSAOOn )
+    if( m_isSSAOOn || m_isSSDOOn )
     {
         // bind dedicated FBO
         glBindFramebuffer(GL_FRAMEBUFFER, m_gFBO);
@@ -420,7 +425,7 @@ void displayLighting()
         // resize viewport to output texture dimension
         glViewport(0, 0, TEX_WIDTH, TEX_HEIGHT);
     }
-    else if( m_isSSAOOn )
+    else if( m_isSSAOOn || m_isSSDOOn )
     {
         // bind dedicated FBO
         glBindFramebuffer(GL_FRAMEBUFFER, m_screenFBO);
@@ -470,7 +475,7 @@ void displayLighting()
     }
 
 
-    if( m_isTSDOn || m_isSSAOOn)
+    if( m_isTSDOn || m_isSSAOOn || m_isSSDOOn)
     {
         // Bind default framebuffer
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -500,7 +505,7 @@ void displayTSD()
         m_drawQuad->drawScreenQuad(m_programQuad, m_tsdTex, true, false, m_filterWidth);
 
 
-        if( m_isSSAOOn )
+        if( m_isSSAOOn || m_isSSDOOn )
         {
             // bind dedicated FBO
             glBindFramebuffer(GL_FRAMEBUFFER, m_screenFBO);
@@ -585,7 +590,7 @@ glViewport(0, 0, m_winWidth, m_winHeight);
 glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 // Draw screen Texture + SSAO
-m_drawQuad->drawScreenQuadFinal(m_programQuadFinal, modelMat, viewMat, projMat, m_BlurTex, m_screenTex);
+m_drawQuad->drawScreenQuadFinal(m_programQuadFinal, modelMat, viewMat, projMat, m_BlurTex, m_screenTex, 1);// occ_type = ssao
 
 
 if(m_isBackgroundWhite)
@@ -632,11 +637,11 @@ glClearColor(1.0f, 1.0f, 1.0f, 1.0);
         //glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 // bind Appropriate FBO
-glBindFramebuffer(GL_FRAMEBUFFER, m_BlurFBO);
+glBindFramebuffer(GL_FRAMEBUFFER, m_BlurFBO2);
 glViewport(0, 0, TEX_WIDTH, TEX_HEIGHT); 
 // SSAO map blurring
 m_drawQuad->drawScreenQuad(m_programQuad, m_SSDOTex, true, true, 4);
-m_drawQuad->drawScreenQuad(m_programQuad, m_BlurTex, true, false, 4);
+m_drawQuad->drawScreenQuad(m_programQuad, m_BlurTex2, true, false, 4);
 
 // Bind default framebuffer
 glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -647,7 +652,7 @@ glViewport(0, 0, m_winWidth, m_winHeight);
 glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 // Draw screen Texture + SSAO
-m_drawQuad->drawScreenQuadFinal(m_programQuadFinal, modelMat, viewMat, projMat, m_BlurTex, m_screenTex);
+m_drawQuad->drawScreenQuadFinal(m_programQuadFinal, modelMat, viewMat, projMat, m_BlurTex2, m_screenTex, 2); // occ_type = ssdo
 
 
 if(m_isBackgroundWhite)
@@ -655,7 +660,7 @@ if(m_isBackgroundWhite)
 else
     glClearColor(0.0f, 0.0f, 0.0f, 0.0);
 
-        //m_drawQuad->drawScreenQuad(m_programQuad, /*m_SSDOTex*/m_BlurTex, false); 
+        //m_drawQuad->drawScreenQuad(m_programQuad, /*m_SSDOTex*/m_screenTex, false); 
     }
 
 }

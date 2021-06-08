@@ -729,7 +729,7 @@ void DrawableMesh::drawScreenQuadSSDO(GLuint _program, glm::mat4 _modelMat, glm:
 }
 
 
-void DrawableMesh::drawScreenQuadFinal(GLuint _program, glm::mat4 _modelMat, glm::mat4 _viewMat, glm::mat4 _projMat, GLuint _ssaotex, GLuint _screenTex )
+void DrawableMesh::drawScreenQuadFinal(GLuint _program, glm::mat4 _modelMat, glm::mat4 _viewMat, glm::mat4 _projMat, GLuint _ssaotex, GLuint _screenTex, int _occType)
 {
     // Activate program
         glUseProgram(_program);
@@ -762,6 +762,8 @@ void DrawableMesh::drawScreenQuadFinal(GLuint _program, glm::mat4 _modelMat, glm
         glUniform1i(glGetUniformLocation(_program, "u_colorTex"), 0);
 
         glUniform1i(glGetUniformLocation(_program, "u_aoTex"), 1);
+
+        glUniform1i(glGetUniformLocation(_program, "u_occlusion_type"), _occType); 
 
         // Draw!
         glBindVertexArray(m_meshVAO);                       // bind the VAO
