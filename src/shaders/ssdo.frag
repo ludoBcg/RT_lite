@@ -2,16 +2,6 @@
 #version 330
 
 
-// ------------------------------------------------------------------------------------------------
-// - Render a geomtery defined by G-buffers (Position and normal textures)
-// - Compute Screen-Space Ambient Occlusion (SSAO)
-// This shader is used to generate SSAO map.
-//
-// Based on the following SSAO tutorial:
-// 		https://learnopengl.com/Advanced-Lighting/SSAO
-// ------------------------------------------------------------------------------------------------
-
-
 // UNIFORMS
 uniform sampler2D u_screenTex;
 uniform sampler2D u_noiseTex;
@@ -64,6 +54,7 @@ void main()
 	
 	vec3 directionalLight = vec3(0.0);
 	vec3 indirectLight = vec3(0.0);
+	float ao = 0.0;	
 	
 	// ignore fragment if normal or position is empty
 	if (normal == vec3(0.0f) || fragPos == vec3(0.0f) ) 
@@ -105,6 +96,8 @@ void main()
 				vec4 skyboxDirection = inverse(u_matV) * vec4(samplePos - fragPos, 0.0);
 				vec3 skyboxColor = texture(u_cubemap, skyboxDirection.xyz).xyz;
 				directionalLight += skyboxColor * dot(normal, normalize(samplePos - fragPos));
+				
+				ao += 1.0;
 			}
 			else
 			{
@@ -127,7 +120,7 @@ void main()
 	
 	//frag_color.rgb = (indirectLight/2.0) / kernelSize;
 	frag_color.rgb = indirectLight;
-	//FragColor.a = pow(ao / kernelSize, 2); //artificial amplification
+	//frag_color.a = pow(ao / kernelSize, 2); //artificial amplification
 
 }
 

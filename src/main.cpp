@@ -57,7 +57,7 @@ float m_lightCamNearRad;        /*!< distance between scene center and light cam
 float m_lightCamFarRad;         /*!< distance between scene center and light camera far plane (NOT light camera far distance ! ) */
 
 // 3D objects
-TriMesh* m_triMesh;         /*!<  triangle mesh */
+TriMesh* m_triMesh;             /*!<  triangle mesh */
 DrawableMesh* m_drawMesh;       /*!<  drawable object: mesh object */
 DrawableMesh* m_drawQuad;       /*!<  drawable object: screen quad */
 DrawableMesh* m_drawFloor;      /*!<  drawable object: floor quad */
@@ -660,7 +660,8 @@ if(m_isBackgroundWhite)
 else
     glClearColor(0.0f, 0.0f, 0.0f, 0.0);
 
-        //m_drawQuad->drawScreenQuad(m_programQuad, /*m_SSDOTex*/m_screenTex, false); 
+        // debug
+        //m_drawQuad->drawScreenQuad(m_programQuad, m_SSDOTex, false); 
     }
 
 }

@@ -29,7 +29,7 @@ void main()
 {
 	
 	vec3 color = texture(u_colorTex, vert_uv.xy).rgb;
-	vec3 ao = texture(u_aoTex, vert_uv.xy).rgb;
+	vec4 ao = texture(u_aoTex, vert_uv.xy).rgba;
 
 	if(u_occlusion_type == 1)
 		frag_color = vec4(color.rgb * ao.rgb, 1.0);
