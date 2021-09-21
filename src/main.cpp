@@ -81,11 +81,11 @@ GLuint m_screenTex;             /*!< Destination texture for screen-space proces
 GLuint m_SSAOFBO;               /*!< FBO for SSAO processing: renders SSAO (as color component) into m_SSAOTex */
 GLuint m_SSAOTex;               /*!< Screen-texture to store SSAO result */
 GLuint m_BlurFBO;               /*!< FBO for SSAO blurring: renders blured SSAO (as color component) into m_BlurTex */   
-GLuint m_BlurFBO2;              /*!< FBO for SSDO blurring: renders blured SSDO (as color component) into m_BlurTex2 */    
+GLuint m_BlurFBO2;              /*!< FBO for SSLR blurring: renders blured SSLR (as color component) into m_BlurTex2 */    
 GLuint m_BlurTex;               /*!< Screen-texture to store blurred SSAO */
-GLuint m_BlurTex2;              /*!< Screen-texture to store blurred SSDO */
-GLuint m_SSDOFBO;               /*!< FBO for SSDO renders SSDO (as color component) into m_SSDOTex */    
-GLuint m_SSDOTex;               /*!< Screen-texture to store SSDO */
+GLuint m_BlurTex2;              /*!< Screen-texture to store blurred SSLR */
+GLuint m_SSLRFBO;               /*!< FBO for SSLR renders SSLR (as color component) into m_SSLRTex */    
+GLuint m_SSLRTex;               /*!< Screen-texture to store SSLR */
 
 // shader programs
 GLuint m_programLighting;       /*!< handle of the program object (i.e. shaders) for shaded surface rendering */
@@ -96,7 +96,7 @@ GLuint m_programTex;            /*!< handle of the program object (i.e. shaders)
 GLuint m_programGbuffer;        /*!< handle of the program object (i.e. shaders) for G-buffer calculation */
 GLuint m_programSSAO;           /*!< handle of the program object (i.e. shaders) for SSAO calculation */
 GLuint m_programQuadFinal;      /*!< handle of the program object (i.e. shaders) for Final color + SSAO rendering */
-GLuint m_programSSDO;           /*!< handle of the program object (i.e. shaders) for SSAO calculation */
+GLuint m_programSSLR;           /*!< handle of the program object (i.e. shaders) for SSLR calculation */
 
 
 /* 2 types of quads: floor (horizontal), or screen quad */
@@ -121,7 +121,7 @@ bool m_isAOMapOn = false;           /*!< ambient occlusion mapping on  */
 bool m_isSimTransmitOn = false;     /*!< simulate transmission on  */
 bool m_isTSDOn = false;             /*!< texture space diffusion on  */
 bool m_isSSAOOn = false;            /*!< screen-space ambient occlusion on  */
-bool m_isSSDOOn = false;            /*!< screen-space directional occlusion on  */
+bool m_isSSLROn = false;            /*!< screen-space light reflection on  */
 
 
 int m_filterWidth = 2;
@@ -161,6 +161,9 @@ const char *m_fileCubeMapList[] =   { "Church",
 
 std::string shaderDir = "../../src/shaders/";   /*!< relative path to shaders folder  */
 std::string modelDir = "../../models/";   /*!< relative path to meshes and textures files folder  */
+
+
+// Functions definitions
 
 void initialize();
 void initScene(TriMesh *_triMesh);
@@ -237,7 +240,7 @@ void initialize()
     m_programGbuffer = loadShaderProgram(shaderDir + "gBuffer.vert", shaderDir + "gBuffer.frag");       // renders 3D scene and writes G-buffers to positionTex, normalTex, and colorTex
     m_programSSAO = loadShaderProgram(shaderDir + "ssao.vert", shaderDir + "ssao.frag");                // renders scene from G-buffer and writes SSAO map
     m_programQuadFinal = loadShaderProgram(shaderDir + "final.vert", shaderDir + "final.frag");         // renders scenes from screenTex and SSAmap
-    m_programSSDO = loadShaderProgram(shaderDir + "ssdo.vert", shaderDir + "ssdo.frag");                // renders scene from G-buffer and writes SSDO map
+    m_programSSLR = loadShaderProgram(shaderDir + "sslr.vert", shaderDir + "sslr.frag");                // renders scene from G-buffer and writes SSLR map
 
     // build FBO and depth texture output for shadow map generation
     buildShadowFBOandTex(&m_shadowFBO, &m_shadowMapTex, TEX_WIDTH, TEX_HEIGHT);
@@ -260,8 +263,8 @@ void initialize()
     // build FBO and texture output for blurring of SSAO texture
     buildScreenFBOandTex(&m_BlurFBO2, &m_BlurTex2, TEX_WIDTH, TEX_HEIGHT, false, false);
 
-    // build FBO and texture output for SSDO
-    buildScreenFBOandTex(&m_SSDOFBO, &m_SSDOTex, TEX_WIDTH, TEX_HEIGHT, true, false);
+    // build FBO and texture output for SSLR
+    buildScreenFBOandTex(&m_SSLRFBO, &m_SSLRTex, TEX_WIDTH, TEX_HEIGHT, true, false);
 
     m_ssaoKernel = buildRandKernel();
     buildKernelRot(&m_noiseTex); 
@@ -372,7 +375,7 @@ void displayShadowMap()
 void displayGBuffering()
 {
     // generate G-buffer only if SSAO is activated
-    if( m_isSSAOOn || m_isSSDOOn )
+    if( m_isSSAOOn || m_isSSLROn )
     {
         // bind dedicated FBO
         glBindFramebuffer(GL_FRAMEBUFFER, m_gFBO);
@@ -380,8 +383,9 @@ void displayGBuffering()
         // resize viewport to output texture dimension
         glViewport(0, 0, TEX_WIDTH, TEX_HEIGHT);
 
-// switch background to black to make sure empty fragments are not processed
-glClearColor(0.0f, 0.0f, 0.0f, 0.0);       
+        // switch background to black to make sure empty fragments are not processed
+        glClearColor(0.0f, 0.0f, 0.0f, 0.0);    
+
         // Clear window with background color
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -403,19 +407,22 @@ glClearColor(0.0f, 0.0f, 0.0f, 0.0);
         glViewport(0, 0, m_winWidth, m_winHeight);
 
 
-if(m_isBackgroundWhite)
-    glClearColor(1.0f, 1.0f, 1.0f, 0.0);
-else
-    glClearColor(0.0f, 0.0f, 0.0f, 0.0);
+        if(m_isBackgroundWhite)
+            glClearColor(1.0f, 1.0f, 1.0f, 0.0);
+        else
+            glClearColor(0.0f, 0.0f, 0.0f, 0.0);
+
     }
 }
 
 
 void displayLighting()
 {
-
+    
     if( m_isTSDOn )
     {
+        // Bind dedicated FBO if the results must be saved in mesh texture for TSD
+
         if (m_modelType != 1 && m_modelType != 2) 
             std::cerr << "[ERROR] Main::Display(): Cannot apply texture space diffusion without UV map" << std::endl;
 
@@ -425,8 +432,10 @@ void displayLighting()
         // resize viewport to output texture dimension
         glViewport(0, 0, TEX_WIDTH, TEX_HEIGHT);
     }
-    else if( m_isSSAOOn || m_isSSDOOn )
+    else if( m_isSSAOOn || m_isSSLROn )
     {
+        // Bind dedicated FBO if the results must be saved in screen-space texture for future rendering steps
+
         // bind dedicated FBO
         glBindFramebuffer(GL_FRAMEBUFFER, m_screenFBO);
 
@@ -465,6 +474,7 @@ void displayLighting()
         m_drawFloor->draw(m_programLighting, modelMat, viewMat, projMat, sphericalToEuclidean(m_lightSpherePos), m_camPos, m_lightCol, lightSpaceMat, m_maxDistLight);
 
 
+    // draw sky box
     if(m_isEnvMapOn && !m_isTSDOn)
     {
         glm::mat4 v = glm::mat4(glm::mat3( m_camera.getViewMatrix() )) * m_modelMatrix;
@@ -475,7 +485,7 @@ void displayLighting()
     }
 
 
-    if( m_isTSDOn || m_isSSAOOn || m_isSSDOOn)
+    if( m_isTSDOn || m_isSSAOOn || m_isSSLROn)
     {
         // Bind default framebuffer
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -505,8 +515,10 @@ void displayTSD()
         m_drawQuad->drawScreenQuad(m_programQuad, m_tsdTex, true, false, m_filterWidth);
 
 
-        if( m_isSSAOOn || m_isSSDOOn )
+        if( m_isSSAOOn || m_isSSLROn )
         {
+            // Bind dedicated FBO if the results must be saved in screen-space texture for future rendering steps
+
             // bind dedicated FBO
             glBindFramebuffer(GL_FRAMEBUFFER, m_screenFBO);
 
@@ -515,6 +527,8 @@ void displayTSD()
         }
         else
         {
+            // Bind default framebuffer if there is no future rendering steps
+
             glBindFramebuffer(GL_FRAMEBUFFER, 0);
             glViewport(0, 0, m_winWidth, m_winHeight);
         }
@@ -532,6 +546,7 @@ void displayTSD()
             m_drawFloor->draw(m_programLighting, modelMat, viewMat, projMat, sphericalToEuclidean(m_lightSpherePos), m_camPos, m_lightCol, lightSpaceMat, m_maxDistLight);
 
 
+        // draw skybox
         if(m_isEnvMapOn)
         {
             glm::mat4 v = glm::mat4(glm::mat3( m_camera.getViewMatrix() )) * m_modelMatrix;
@@ -560,8 +575,8 @@ void displaySSAO()
         // resize viewport to output texture dimension
         glViewport(0, 0, TEX_WIDTH, TEX_HEIGHT);
 
-// switch background to white to make sure empty fragments do not disapear after applying AO factor to color
-glClearColor(1.0f, 1.0f, 1.0f, 1.0); 
+        // switch background to white to make sure empty fragments do not disapear after applying AO factor to color
+        glClearColor(1.0f, 1.0f, 1.0f, 1.0); 
         // Clear window with background color
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
  
@@ -569,34 +584,47 @@ glClearColor(1.0f, 1.0f, 1.0f, 1.0);
         glm::mat4 viewMat = m_camera.getViewMatrix();
         glm::mat4 projMat = m_camera.getProjectionMatrix();
 
-
-        //m_drawQuad->drawScreenQuad(m_programQuad, modelMat, viewMat, projMat, m_screenTex, false);
-        m_drawQuad->drawScreenQuadSSAO(m_programSSAO, m_gPosition, m_gNormal, m_ssaoRadius, (float)m_winWidth, (float)m_winHeight);
-
-
-// bind Appropriate FBO
-glBindFramebuffer(GL_FRAMEBUFFER, m_BlurFBO);
-glViewport(0, 0, TEX_WIDTH, TEX_HEIGHT); 
-// SSAO map blurring
-m_drawQuad->drawScreenQuad(m_programQuad, m_SSAOTex, true, true, 4);
-m_drawQuad->drawScreenQuad(m_programQuad, m_BlurTex, true, false, 4);
-
-// Bind default framebuffer
-glBindFramebuffer(GL_FRAMEBUFFER, 0);
-// resize viewport to window dimensions
-glViewport(0, 0, m_winWidth, m_winHeight);
-
-// Clear window with background color
-glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-// Draw screen Texture + SSAO
-m_drawQuad->drawScreenQuadFinal(m_programQuadFinal, modelMat, viewMat, projMat, m_BlurTex, m_screenTex, 1);// occ_type = ssao
+        // generate SSAO texture
+        m_drawQuad->drawScreenQuadSSAO(m_programSSAO, projMat, m_gPosition, m_gNormal, m_ssaoRadius, (float)m_winWidth, (float)m_winHeight);
 
 
-if(m_isBackgroundWhite)
-    glClearColor(1.0f, 1.0f, 1.0f, 0.0);
-else
-    glClearColor(0.0f, 0.0f, 0.0f, 0.0);
+        // bind Appropriate FBO
+        glBindFramebuffer(GL_FRAMEBUFFER, m_BlurFBO);
+        glViewport(0, 0, TEX_WIDTH, TEX_HEIGHT); 
+        // SSAO texture blurring
+        m_drawQuad->drawScreenQuad(m_programQuad, m_SSAOTex, true, true, 4);
+        m_drawQuad->drawScreenQuad(m_programQuad, m_BlurTex, true, false, 4);
+
+        if( m_isSSLROn ) 
+        {
+            // Bind dedicated FBO if the results must be saved in screen-space texture for future rendering steps
+
+            // bind dedicated FBO
+            glBindFramebuffer(GL_FRAMEBUFFER, m_SSAOFBO);
+            // resize viewport to output texture dimension
+            glViewport(0, 0, TEX_WIDTH, TEX_HEIGHT);
+        }
+        else
+        {
+            // Bind default framebuffer if there is no future rendering steps
+
+            // Bind default framebuffer
+            glBindFramebuffer(GL_FRAMEBUFFER, 0);
+            // resize viewport to window dimensions
+            glViewport(0, 0, m_winWidth, m_winHeight); 
+        }
+
+        // Clear window with background color
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+        // Draw screen Texture + SSAO
+        m_drawQuad->drawScreenQuadFinal(m_programQuadFinal, modelMat, viewMat, projMat, m_BlurTex, m_screenTex, 1);// occ_type = ssao
+
+
+        if(m_isBackgroundWhite)
+            glClearColor(1.0f, 1.0f, 1.0f, 0.0);
+        else
+            glClearColor(0.0f, 0.0f, 0.0f, 0.0);
 
 
     }
@@ -604,18 +632,18 @@ else
 
 
 
-void displaySSDO()
+void displaySSLR()
 {
-    if( m_isSSDOOn )
+    if( m_isSSLROn )
     {
 
         // bind dedicated FBO
-        glBindFramebuffer(GL_FRAMEBUFFER, m_SSDOFBO);
+        glBindFramebuffer(GL_FRAMEBUFFER, m_SSLRFBO);
         // resize viewport to output texture dimension
         glViewport(0, 0, TEX_WIDTH, TEX_HEIGHT);
 
-// switch background to white to make sure empty fragments do not disapear after applying AO factor to color
-glClearColor(1.0f, 1.0f, 1.0f, 1.0); 
+        // switch background to white to make sure empty fragments do not disapear after applying AO factor to color
+        glClearColor(1.0f, 1.0f, 1.0f, 1.0); 
         // Clear window with background color
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
  
@@ -623,45 +651,43 @@ glClearColor(1.0f, 1.0f, 1.0f, 1.0);
         glm::mat4 viewMat = m_camera.getViewMatrix();
         glm::mat4 projMat = m_camera.getProjectionMatrix();
 
-
-        //m_drawQuad->drawScreenQuad(m_programQuad, modelMat, viewMat, projMat, m_screenTex, false);
-        m_drawQuad->drawScreenQuadSSDO(m_programSSDO, modelMat, viewMat, projMat, m_gPosition, m_gNormal, m_screenTex, m_ssaoRadius, (float)m_winWidth, (float)m_winHeight);
-
-
-        //// Bind default framebuffer
-        //glBindFramebuffer(GL_FRAMEBUFFER, 0);
-        //// resize viewport to window dimensions
-        //glViewport(0, 0, m_winWidth, m_winHeight);
-
-        //// Clear window with background color
-        //glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-// bind Appropriate FBO
-glBindFramebuffer(GL_FRAMEBUFFER, m_BlurFBO2);
-glViewport(0, 0, TEX_WIDTH, TEX_HEIGHT); 
-// SSAO map blurring
-m_drawQuad->drawScreenQuad(m_programQuad, m_SSDOTex, true, true, 4);
-m_drawQuad->drawScreenQuad(m_programQuad, m_BlurTex2, true, false, 4);
-
-// Bind default framebuffer
-glBindFramebuffer(GL_FRAMEBUFFER, 0);
-// resize viewport to window dimensions
-glViewport(0, 0, m_winWidth, m_winHeight);
-
-// Clear window with background color
-glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-// Draw screen Texture + SSAO
-m_drawQuad->drawScreenQuadFinal(m_programQuadFinal, modelMat, viewMat, projMat, m_BlurTex2, m_screenTex, 2); // occ_type = ssdo
+        // generate SSLR texture
+        m_drawQuad->drawScreenQuadSSLR(m_programSSLR, modelMat, viewMat, projMat, m_gPosition, m_gNormal, m_screenTex, m_ssaoRadius, (float)m_winWidth, (float)m_winHeight);
 
 
-if(m_isBackgroundWhite)
-    glClearColor(1.0f, 1.0f, 1.0f, 0.0);
-else
-    glClearColor(0.0f, 0.0f, 0.0f, 0.0);
+        // bind Appropriate FBO
+        glBindFramebuffer(GL_FRAMEBUFFER, m_BlurFBO2);
+        glViewport(0, 0, TEX_WIDTH, TEX_HEIGHT); 
+        // SSLR texture blurring
+        m_drawQuad->drawScreenQuad(m_programQuad, m_SSLRTex, true, true, 4);
+        m_drawQuad->drawScreenQuad(m_programQuad, m_BlurTex2, true, false, 4);
+
+        // Bind default framebuffer
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        // resize viewport to window dimensions
+        glViewport(0, 0, m_winWidth, m_winHeight);
+
+        // Clear window with background color
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+        if( m_isSSAOOn )
+        {
+            // Draw SSLR + Screen texture (which contains SSAO already)
+            m_drawQuad->drawScreenQuadFinal(m_programQuadFinal, modelMat, viewMat, projMat, m_BlurTex2, m_SSAOTex, 2); // occ_type = SSLR
+        }
+        else
+        {
+            // Draw SSLR + Screen texture (without SSAO)
+            m_drawQuad->drawScreenQuadFinal(m_programQuadFinal, modelMat, viewMat, projMat, m_BlurTex2, m_screenTex, 2); // occ_type = SSLR
+        }
+
+        if(m_isBackgroundWhite)
+            glClearColor(1.0f, 1.0f, 1.0f, 0.0);
+        else
+            glClearColor(0.0f, 0.0f, 0.0f, 0.0);
 
         // debug
-        //m_drawQuad->drawScreenQuad(m_programQuad, m_SSDOTex, false); 
+        //m_drawQuad->drawScreenQuad(m_programQuad, /*m_SSLRTex*/ m_SSAOTex, false); 
     }
 
 }
@@ -998,7 +1024,7 @@ void runGUI()
                     // add cube map to mesh rendering
                     m_drawMesh->loadCubeMap( modelDir + "cubemaps/" + std::string(m_fileCubeMapList[m_fileCubeMap]) );
                     m_drawSkybox->loadCubeMap( modelDir + "cubemaps/" + std::string(m_fileCubeMapList[m_fileCubeMap]) );
-                    m_drawQuad->loadCubeMap( modelDir + "cubemaps/" + std::string(m_fileCubeMapList[m_fileCubeMap]) ); // @@
+                    m_drawQuad->loadCubeMap( modelDir + "cubemaps/" + std::string(m_fileCubeMapList[m_fileCubeMap]) );
                 }
 
                 ImGui::EndTabItem();
@@ -1093,7 +1119,7 @@ void runGUI()
         ImGui::Checkbox("SSAO", &m_isSSAOOn);
 
         // Shadow mapping checkbox
-        ImGui::Checkbox("SSDO", &m_isSSDOOn);
+        ImGui::Checkbox("SSLR", &m_isSSLROn);
 
     } // end "Settings"
     else
@@ -1176,9 +1202,10 @@ int main(int argc, char** argv)
         displayLighting();
         // render scene
         displayTSD();
-        // apply screen space effects
+        // apply screen-space AO
         displaySSAO(); 
-        displaySSDO();
+        // apply screen-space reflections
+        displaySSLR();
 
         // render GUI
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());

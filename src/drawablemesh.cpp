@@ -170,8 +170,6 @@ void DrawableMesh::createCubeVAO(glm::vec3 _centerCoords, float _radScene)
     std::vector<glm::vec3> vertices = { glm::vec3(-1.0f,  1.0f, -1.0f), glm::vec3(-1.0f, -1.0f, -1.0f), glm::vec3( 1.0f, -1.0f, -1.0f), glm::vec3( 1.0f,  1.0f, -1.0f), 
                                         glm::vec3(-1.0f,  1.0f,  1.0f), glm::vec3(-1.0f, -1.0f,  1.0f), glm::vec3( 1.0f, -1.0f,  1.0f), glm::vec3( 1.0f,  1.0f,  1.0f) };
 
-    /*std::vector<glm::vec3> vertices = { glm::vec3( minPt.x, maxPt.y, minPt.z ), glm::vec3( minPt.x, minPt.y, minPt.z ), glm::vec3( maxPt.x, minPt.y, minPt.z ), glm::vec3( maxPt.x, maxPt.y, minPt.z ), 
-                                        glm::vec3( minPt.x, maxPt.y, maxPt.z ), glm::vec3( minPt.x, minPt.y, maxPt.z ), glm::vec3( maxPt.x, minPt.y, maxPt.z ), glm::vec3( maxPt.x, maxPt.y, maxPt.z ) };*/
 
     std::vector<uint32_t> indices { 0, 1, 2, 2, 3, 0, // back face
                                     7, 6, 5, 5, 4, 7, // front face
@@ -227,11 +225,11 @@ void DrawableMesh::fillVAO(TriMesh* _triMesh, bool _create)
     // mandatory data
     std::vector<glm::vec3> vertices;
     std::vector<glm::vec3> normals;
-    std::vector<uint32_t> indices;      // !! @ uint32_t !!
+    std::vector<uint32_t> indices;      // !! uint32_t !!
 
     // optional data
     std::vector<glm::vec3> colors;
-    std::vector<glm::vec2> texcoords;   // !! @ vec2 !!
+    std::vector<glm::vec2> texcoords;   // !! vec2 !!
     std::vector<glm::vec3> tangents;
     std::vector<glm::vec3> bitangents;
 
@@ -439,9 +437,9 @@ void DrawableMesh::draw(GLuint _program, glm::mat4 _modelMat, glm::mat4 _viewMat
         glUniformMatrix4fv(glGetUniformLocation(_program, "u_matM"), 1, GL_FALSE, &_modelMat[0][0]);
         glUniformMatrix4fv(glGetUniformLocation(_program, "u_matV"), 1, GL_FALSE, &_viewMat[0][0]);
         glUniformMatrix4fv(glGetUniformLocation(_program, "u_matP"), 1, GL_FALSE, &_projMat[0][0]);
-glUniformMatrix4fv(glGetUniformLocation(_program, "u_matPV_light"), 1, GL_FALSE, &_lightMat[0][0]);
+        glUniformMatrix4fv(glGetUniformLocation(_program, "u_matPV_light"), 1, GL_FALSE, &_lightMat[0][0]);
         glUniform3fv(glGetUniformLocation(_program, "u_lightPos"), 1, &_lightPos[0]);
-glUniform3fv(glGetUniformLocation(_program, "u_camPos"), 1, &_camPos[0]);
+        glUniform3fv(glGetUniformLocation(_program, "u_camPos"), 1, &_camPos[0]);
 
         glUniform3fv(glGetUniformLocation(_program, "u_lightColor"), 1, &_lightCol[0]);
 
@@ -457,7 +455,7 @@ glUniform3fv(glGetUniformLocation(_program, "u_camPos"), 1, &_camPos[0]);
         glUniform1i(glGetUniformLocation(_program, "u_ambientMap"), 4);
         glUniform1i(glGetUniformLocation(_program, "u_cubemap"), 5);
         glUniform1i(glGetUniformLocation(_program, "u_shadowMap"), 6);
-    glUniform1f(glGetUniformLocation(_program, "u_distLightMax"), _distLightMax);
+        glUniform1f(glGetUniformLocation(_program, "u_distLightMax"), _distLightMax);
 
 
 
@@ -540,7 +538,7 @@ glUniform3fv(glGetUniformLocation(_program, "u_camPos"), 1, &_camPos[0]);
 }
 
 
-void DrawableMesh::drawSkyBox(GLuint _program, glm::mat4 _v, glm::mat4 _p)
+void DrawableMesh::drawSkyBox(GLuint _program, glm::mat4 _viewMat, glm::mat4 _projMat)
 {
 
 
@@ -555,8 +553,8 @@ void DrawableMesh::drawSkyBox(GLuint _program, glm::mat4 _v, glm::mat4 _p)
         
 
         // Pass uniforms
-        glUniformMatrix4fv(glGetUniformLocation(_program, "u_view"), 1, GL_FALSE, &_v[0][0]);
-        glUniformMatrix4fv(glGetUniformLocation(_program, "u_projection"), 1, GL_FALSE, &_p[0][0]);
+        glUniformMatrix4fv(glGetUniformLocation(_program, "u_view"), 1, GL_FALSE, &_viewMat[0][0]);
+        glUniformMatrix4fv(glGetUniformLocation(_program, "u_projection"), 1, GL_FALSE, &_projMat[0][0]);
         glUniform1i(glGetUniformLocation(_program, "u_cubemap"), 0);
 
         // Draw!
@@ -623,7 +621,7 @@ void DrawableMesh::drawScreenQuad(GLuint _program, GLuint _tex, bool _isBlurOn, 
 
 
 
-void DrawableMesh::drawScreenQuadSSAO(GLuint _program, GLuint _posTex, GLuint _normalTex, float _radius, float _screenWidth, float _screenHeight)
+void DrawableMesh::drawScreenQuadSSAO(GLuint _program, glm::mat4 _projMat, GLuint _posTex, GLuint _normalTex, float _radius, float _screenWidth, float _screenHeight)
 {
         // Activate program
         glUseProgram(_program);
@@ -654,8 +652,8 @@ void DrawableMesh::drawScreenQuadSSAO(GLuint _program, GLuint _posTex, GLuint _n
         glUniform1f(glGetUniformLocation(_program, "u_radius"), _radius);
         glUniform1f(glGetUniformLocation(_program, "u_screenWidth"), _screenWidth);
         glUniform1f(glGetUniformLocation(_program, "u_screenHeight"), _screenHeight);
+        glUniformMatrix4fv(glGetUniformLocation(_program, "u_matP"), 1, GL_FALSE, &_projMat[0][0]);
 
-        // @@ u_matP missing !!!
 
         // Draw!
         glBindVertexArray(m_meshVAO);                       // bind the VAO
@@ -671,7 +669,7 @@ void DrawableMesh::drawScreenQuadSSAO(GLuint _program, GLuint _posTex, GLuint _n
 
 
 
-void DrawableMesh::drawScreenQuadSSDO(GLuint _program, glm::mat4 _modelMat, glm::mat4 _viewMat, glm::mat4 _projMat, GLuint _posTex, GLuint _normalTex, GLuint _screenTex, float _radius, float _screenWidth, float _screenHeight)
+void DrawableMesh::drawScreenQuadSSLR(GLuint _program, glm::mat4 _modelMat, glm::mat4 _viewMat, glm::mat4 _projMat, GLuint _posTex, GLuint _normalTex, GLuint _screenTex, float _radius, float _screenWidth, float _screenHeight)
 {
         // Activate program
         glUseProgram(_program);
@@ -731,7 +729,7 @@ void DrawableMesh::drawScreenQuadSSDO(GLuint _program, glm::mat4 _modelMat, glm:
 
 void DrawableMesh::drawScreenQuadFinal(GLuint _program, glm::mat4 _modelMat, glm::mat4 _viewMat, glm::mat4 _projMat, GLuint _ssaotex, GLuint _screenTex, int _occType)
 {
-    // Activate program
+        // Activate program
         glUseProgram(_program);
 
         // bind texture
@@ -780,8 +778,6 @@ void DrawableMesh::drawScreenQuadFinal(GLuint _program, glm::mat4 _modelMat, glm
 
 void DrawableMesh::drawTex(GLuint _program, glm::mat4 _modelMat, glm::mat4 _viewMat, glm::mat4 _projMat, GLuint _tex )
 {
-        // !! @ TEMP FUNCTION FOR DEBUG PURPOSE !!
-
         // Activate program
         glUseProgram(_program);
 
@@ -931,7 +927,7 @@ GLuint DrawableMesh::loadCubemap(const std::string& _dirname)
         glBindTexture(GL_TEXTURE_CUBE_MAP, texture);
         glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
         glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
         glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
         glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
         for (unsigned int i = 0; i < num_sides; ++i) 

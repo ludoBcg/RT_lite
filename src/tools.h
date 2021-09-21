@@ -42,12 +42,12 @@ class Trackball
     private:
 
 
-        double m_radius;         // radius
-        bool m_tracking;         // tracking activated/deactivated boolean state
-        glm::vec2 m_center;      // 2D center's coords
-        glm::vec3 m_vStart;      // 3D coords sarting position
-        glm::quat m_qStart;      // quaternion starting position
-        glm::quat m_qCurrent;    // quaternion current rotation
+        double m_radius;         /*!< radius */
+        bool m_tracking;         /*!< tracking activated/deactivated boolean state */
+        glm::vec2 m_center;      /*!< 2D center's coords */
+        glm::vec3 m_vStart;      /*!< 3D coords sarting position */
+        glm::quat m_qStart;      /*!< quaternion starting position */
+        glm::quat m_qCurrent;    /*!< quaternion current rotation */
 
 
     public:
@@ -206,16 +206,15 @@ class Camera
 {
     private:
 
+        glm::mat4 m_projectionMatrix;     /*!< Perspective projection matrix */
+        glm::mat4 m_viewMatrix;           /*!< View matrix */
 
-        glm::mat4 m_projectionMatrix;     // Perspective projection matrix
-        glm::mat4 m_viewMatrix;           // View matrix
-
-        float m_nearPlane;                // distance to near clip plane
-        float m_farPlane;                 // distance to far clip plane
-        float m_fovy;                     // field of view angle
-        float m_aspect;                   // aspect ration
-        float m_zoomFactor;               // factor applied to fov for zoom effect
-        float m_orthoOpening;             // dimension of window to capture for orthognal projection
+        float m_nearPlane;                /*!< distance to near clip plane */
+        float m_farPlane;                 /*!< distance to far clip plane */
+        float m_fovy;                     /*!< field of view angle */
+        float m_aspect;                   /*!< aspect ration */
+        float m_zoomFactor;               /*!< factor applied to fov for zoom effect */
+        float m_orthoOpening;             /*!< dimension of window to capture for orthognal projection */
 
 
     public:

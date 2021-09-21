@@ -77,7 +77,9 @@ class DrawableMesh
 
         /*! \fn setShadowMap */
         inline void setShadowMap(GLuint _shadowMap) { m_shadowMap = _shadowMap; }
+        /*! \fn setSSAOKernel */
         inline void setSSAOKernel(std::vector<glm::vec3> _ssaoKernel) { m_ssaoKernel = _ssaoKernel; }
+        /*! \fn setNoiseTex */
         inline void setNoiseTex(GLuint _noiseTex) { m_noiseTex = _noiseTex; }
 
 
@@ -226,7 +228,15 @@ class DrawableMesh
         */
         void draw(GLuint _program, glm::mat4 _modelMat, glm::mat4 _viewMat, glm::mat4 _projMat, glm::vec3 _lightPos, glm::vec3 _camPos, glm::vec3 _lightCol, glm::mat4 _lightMat, float _distLightMax);
 
-        void drawSkyBox(GLuint _program, glm::mat4 _v, glm::mat4 _p);
+        /*!
+        * \fn draw
+        * \brief Draw a sky box with cube map for environment mapping
+        * \param _program : shader program
+        * \param _modelMat : model matrix
+        * \param _viewMat :camera view matrix
+        * \param _projMat :camera projection matrix
+        */
+        void drawSkyBox(GLuint _program, glm::mat4 _viewMat, glm::mat4 _projMat);
 
         /*!
         * \fn drawScreenQuad
@@ -239,11 +249,56 @@ class DrawableMesh
         */
         void drawScreenQuad(GLuint _program, GLuint _tex, bool _isBlurOn, bool _isGaussH = true, int _filterWidth = 0 );
 
+        /*!
+        * \fn drawScreenQuadSSAO
+        * \brief Draw the screen quad, mapped with G-buffer (position and normal textures), and compute screen-space ambient occlusion
+        * \param _program : shader program
+        * \param _projMat :camera projection matrix
+        * \param _posTex : G-buffer position texture
+        * \param _normalTex : G-buffer normal texture
+        * \param _radius : neighborhood radius for SSAO computation
+        * \param _screenWidth, _screenHeight : window dimensions
+        */
+        void drawScreenQuadSSAO(GLuint _program, glm::mat4 _projMat, GLuint _posTex, GLuint _normalTex, float _radius, float _screenWidth, float _screenHeight);
 
-        void drawScreenQuadSSAO(GLuint _program, GLuint _posTex, GLuint _normalTex, float _radius, float _screenWidth, float _screenHeight);
-        void drawScreenQuadSSDO(GLuint _program, glm::mat4 _modelMat, glm::mat4 _viewMat, glm::mat4 _projMat, GLuint _posTex, GLuint _normalTex, GLuint _screenTex, float _radius, float _screenWidth, float _screenHeight);
-        void drawScreenQuadFinal(GLuint _program, glm::mat4 _modelMat, glm::mat4 _viewMat, glm::mat4 _projMat, GLuint _ssaotex, GLuint _screenTex, int _occType );  // !! @ WIP !!
-        void drawTex(GLuint _program, glm::mat4 _modelMat, glm::mat4 _viewMat, glm::mat4 _projMat, GLuint _tex );  // !! @ WIP !!
+        /*!
+        * \fn drawScreenQuadSSLR
+        * \brief Draw the screen quad, mapped with G-buffer (position and normal textures), and compute screen-space light reflection
+        * \param _program : shader program
+        * \param _modelMat : model matrix
+        * \param _viewMat :camera view matrix
+        * \param _projMat :camera projection matrix
+        * \param _posTex : G-buffer position texture
+        * \param _normalTex : G-buffer normal texture
+        * \param _screenTex : screen-space scene rendering texture
+        * \param _radius : neighborhood radius for SSLR computation
+        * \param _screenWidth, _screenHeight : window dimensions
+        */
+        void drawScreenQuadSSLR(GLuint _program, glm::mat4 _modelMat, glm::mat4 _viewMat, glm::mat4 _projMat, GLuint _posTex, GLuint _normalTex, GLuint _screenTex, float _radius, float _screenWidth, float _screenHeight);
+
+        /*!
+        * \fn drawScreenQuadFinal
+        * \brief Draw screen-quad, compositing of scene rendering with screen-space occlusion / reflection. 
+        * \param _program : shader program
+        * \param _modelMat : model matrix
+        * \param _viewMat :camera view matrix
+        * \param _projMat :camera projection matrix
+        * \param _ssaotex : SSAO or SSLR texture
+        * \param _screenTex : screen-space scene rendering texture
+        * \param _occType : 1 for SSAO, 2 for SSLR
+        */
+        void drawScreenQuadFinal(GLuint _program, glm::mat4 _modelMat, glm::mat4 _viewMat, glm::mat4 _projMat, GLuint _ssaotex, GLuint _screenTex, int _occType );
+
+        /*!
+        * \fn drawTex
+        * \brief Draw a mesh with a texture mapped on it. Used for TSD. 
+        * \param _program : shader program
+        * \param _modelMat : model matrix
+        * \param _viewMat :camera view matrix
+        * \param _projMat :camera projection matrix
+        * \param _tex : texture to map
+        */
+        void drawTex(GLuint _program, glm::mat4 _modelMat, glm::mat4 _viewMat, glm::mat4 _projMat, GLuint _tex );
 
         /*!
         * \fn drawShadow
@@ -253,7 +308,15 @@ class DrawableMesh
         */
         void drawShadow(GLuint _program, glm::mat4 _lvp);
 
-
+        /*!
+        * \fn drawGbuffer
+        * \brief Draw the content of the mesh VAO for G-buffer generation
+        * \param _program : shader program
+        * \param _modelMat : model matrix
+        * \param _viewMat :camera view matrix
+        * \param _projMat :camera projection matrix
+        * \param _isFloor : true if the mesh to draw is the floor quad
+        */
         void drawGbuffer(GLuint _program, glm::mat4 _modelMat, glm::mat4 _viewMat, glm::mat4 _projMat, bool _isFloor);
 
         /*!
@@ -291,7 +354,7 @@ class DrawableMesh
         * \brief load a set of cube maps (for environment mapping) from a directory
         * \param _dirname : directory of the cube maps
         */
-        inline void loadCubeMap(const std::string& _dirname) { m_cubeMap = loadCubemap(_dirname); }     // !! @ TODO: check m_specPow is consistent !!
+        inline void loadCubeMap(const std::string& _dirname) { m_cubeMap = loadCubemap(_dirname); }
 
         /*! 
         * \fn toggleShadedRenderFlag 

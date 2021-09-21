@@ -1,6 +1,27 @@
 // Fragment shader
 //#version 330
 
+
+// ------------------------------------------------------------------------------------------------
+// - Render a geometry using Cook-Torrance BRDF and Phisycally-Based Rendering (PBR)
+// Based on LearnOpenGL tutorial:
+//		https://learnopengl.com/PBR/Lighting
+//
+// - Compute Simulate Light Transmission to approximate Sub-Surface Scattering (SSS)
+// Based on GPU Gems, and implementation by A. Brandstaetter:
+//
+//		S. Green, “Real-Time Approximations to Subsurface Scattering”. GPU Gems 1, chap 16.
+//		https://developer.nvidia.com/gpugems/GPUGems/gpugems_ch16.html
+//
+//      A. Brandstaetter, "Real-time rendering of realistic surfaces using subsurface scattering". 
+//		Bsc. thesis, 2020.
+//
+// - Compute shadow mapping, based on the following tutorials:
+//		https://learnopengl.com/Advanced-Lighting/Shadows/Shadow-Mapping
+//		http://www.opengl-tutorial.org/intermediate-tutorials/tutorial-16-shadow-mapping/
+// ------------------------------------------------------------------------------------------------
+
+
 // UNIFORMS
 uniform vec3 u_lightColor;
 
@@ -53,7 +74,6 @@ out vec4 frag_color;
 
 
 // MAIN
-// see https://learnopengl.com/PBR/Lighting
 void main()
 {
 	

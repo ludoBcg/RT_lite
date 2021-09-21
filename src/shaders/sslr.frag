@@ -2,6 +2,20 @@
 #version 330
 
 
+// ------------------------------------------------------------------------------------------------
+// - Render a geometry defined by G-buffers (Position and normal textures)
+// - Compute Screen-Space Light Reflection (SSLR)
+// This shader is used to generate SSLR map.
+//
+// Based on Screen-Space Directionnal Occlusion by T.Ritschel et al., and implementation by J. Huber:
+//
+//		Ritschel et al., "Approximating dynamic global illumination in image space", I3D 2009
+// 		https://doi.org/10.1145/1507149.1507161
+//
+// 		J. Huber, "Enhancing Visual Rendering for Interactive AR". Msc. thesis, 2019.
+// ------------------------------------------------------------------------------------------------
+
+
 // UNIFORMS
 uniform sampler2D u_screenTex;
 uniform sampler2D u_noiseTex;
@@ -44,7 +58,6 @@ void main()
 	vec2 noiseScale = vec2(u_screenWidth/4.0, u_screenHeight/4.0);
 	radius = u_radius;
 	radius = 1.0;
-	float occlusion = 0.0;
 	
 	// read fragment 3D pos from G-buffer position texture
 	vec3 fragPos = texture(u_posTex, vert_uv.xy).xyz;
@@ -53,15 +66,10 @@ void main()
 	
 	
 	vec3 directionalLight = vec3(0.0);
-	vec3 indirectLight = vec3(0.0);
-	float ao = 0.0;	
+	vec3 indirectLight = vec3(0.0);	
 	
 	// ignore fragment if normal or position is empty
-	if (normal == vec3(0.0f) || fragPos == vec3(0.0f) ) 
-	{
-		//occlusion = 1.0;
-	}
-	else
+	if (normal != vec3(0.0f) && fragPos != vec3(0.0f) ) 
 	{
 		// build random direction vector from noise texture
 		vec3 randomVec = texture(u_noiseTex, vert_uv.xy * noiseScale).xyz; 
@@ -87,20 +95,19 @@ void main()
 			float sampleDepth = texture(u_posTex, offset.xy).z; // get depth value at kernel sample
 			vec3 sampleNormal = texture(u_normalTex, offset.xy).rgb;
 			vec3 samplePos2 = texture(u_posTex, offset.xy).xyz;
-			vec3 sampleColor = texture(u_screenTex, offset.xy).xyz; // @@@ color texture !!!
+			vec3 sampleColor = texture(u_screenTex, offset.xy).xyz; 
 			
-			//float rangeCheck = smoothstep(0.0, 1.0, radius / abs(fragPos.z - sampleDepth));
-			//occlusion += (sampleDepth >= samplePos.z + bias ? 1.0 : 0.0) * rangeCheck;  
 			if (sampleDepth < samplePos.z || radius < abs(fragPos.z - sampleDepth))
 			{
+				// Directionnal Light : Irradiance from cubemap (if any)
 				vec4 skyboxDirection = inverse(u_matV) * vec4(samplePos - fragPos, 0.0);
 				vec3 skyboxColor = texture(u_cubemap, skyboxDirection.xyz).xyz;
 				directionalLight += skyboxColor * dot(normal, normalize(samplePos - fragPos));
 				
-				ao += 1.0;
 			}
 			else
 			{
+				// Indirect light: approximate one step of screen-space reflection
 				vec3 receiverToSender = fragPos.xyz - samplePos2.xyz;
 				vec3 normalizedRS = normalize(receiverToSender);
 				indirectLight += max(0.0, dot(normalizedRS, -normal)) * max(0.0, dot(normalizedRS, sampleNormal)) * (1 / max(radius*radius*0.5, dot(receiverToSender, receiverToSender))) * 0.5 * sampleColor;
@@ -108,19 +115,15 @@ void main()
 			
 		}  
 
-		//occlusion = 1.0 - (occlusion / kernelSize);
-		//occlusion = pow(occlusion, 0.5);
 
 	}
 
-	//frag_color = vec4(occlusion);
+
 	directionalLight = PI * directionalLight / kernelSize;
 	frag_color = vec4( directionalLight.rgb, 1.0);
-	//frag_color = vec4(1.0, 0.0, 0.0, 1.0);
-	
-	//frag_color.rgb = (indirectLight/2.0) / kernelSize;
-	frag_color.rgb = indirectLight;
-	//frag_color.a = pow(ao / kernelSize, 2); //artificial amplification
+
+	frag_color.rgb += indirectLight;
+
 
 }
 
