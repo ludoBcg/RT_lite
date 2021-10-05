@@ -93,6 +93,6 @@ RT_lite is provided as a ready-to-build folder with a CMakeList.
 The only requirement are:
 * C++ compiler
 * OpenGL 3.0+
-* CMake ( https://cmake.org/ )
+* [CMake]( https://cmake.org/ )
 
 Use CMake to generate a project/makefile, compile, and run !
