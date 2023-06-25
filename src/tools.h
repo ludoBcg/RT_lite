@@ -1,0 +1,815 @@
+/*********************************************************************************************************************
+ *
+ * tools.h
+ *
+ * Minimal classes for Trackball and Camera
+ * 
+ * RT_lite
+ * Ludovic Blache
+ *
+ *********************************************************************************************************************/
+
+
+#ifndef TOOLS_H
+#define TOOLS_H
+
+
+#include <vector>
+#include <fstream>
+#include <sstream>
+#include <iostream>
+#include <random>
+
+#define GLM_FORCE_RADIANS
+
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
+
+
+
+        /*------------------------------------------------------------------------------------------------------------+
+        |                                             MISC. CLASSES                                                   |
+        +------------------------------------------------------------------------------------------------------------*/
+
+
+/*!
+* \class Trackball
+* \brief Handles trackball interaction
+*/
+class Trackball 
+{
+    private:
+
+
+        double m_radius;         /*!< radius */
+        bool m_tracking;         /*!< tracking activated/deactivated boolean state */
+        glm::vec2 m_center;      /*!< 2D center's coords */
+        glm::vec3 m_vStart;      /*!< 3D coords sarting position */
+        glm::quat m_qStart;      /*!< quaternion starting position */
+        glm::quat m_qCurrent;    /*!< quaternion current rotation */
+
+
+    public:
+
+
+        /*!
+        * \fn Trackball
+        * \brief Default constructor
+        */
+        Trackball() : m_radius(1.0),
+                      m_center(glm::vec2(0.0f, 0.0f)),
+                      m_tracking(false),
+                      m_vStart(glm::vec3(0.0f, 0.0f, 1.0f)),
+                      m_qStart(glm::quat(1.0f, 0.0f, 0.0f, 0.0f)),
+                      m_qCurrent(glm::quat(1.0f, 0.0f, 0.0f, 0.0f))
+        {}
+
+    
+        /*!
+        * \fn init
+        * \brief Initialize trackball
+        *
+        * \param _width : viewport width
+        * \param _height : viewport height
+        */
+        void init(int _width, int _height)
+        {
+            m_radius = double(std::min(_width, _height)) * 0.5f;
+            m_center = glm::vec2(_width, _height) * 0.5f;
+        }
+
+
+        /*!
+        * \fn reStart
+        * \brief Set trackball in initial position
+        */
+        void reStart()
+        {
+            m_qCurrent = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
+        }
+
+
+        /*!
+        * \fn mapMousePointToUnitSphere
+        * \brief Maps 2D coords in screen space (i.e., mouse pointer) to 3D coords on unit sphere
+        *
+        * \param _point : 2D coords in screen space
+        * \return 3D coords on unit sphere
+        */
+        glm::vec3 mapMousePointToUnitSphere(glm::vec2 _point)
+        {
+            // calculate the vector between center and point
+            double x = _point[0] - m_center[0];
+            double y = -_point[1] + m_center[1];
+            double z = 0.0f;
+
+            // the closer point is from center, the greater z is
+            if (x * x + y * y < m_radius * m_radius / 2.0f) 
+            {
+                z = std::sqrt(m_radius * m_radius - (x * x + y * y));
+            }
+            else 
+            {
+                z = (m_radius * m_radius / 2.0f) / std::sqrt(x * x + y * y);
+            }
+
+            // normalize vector coords to get a point on unit sphere
+            return glm::normalize(glm::vec3(x, y, z));
+        }
+
+
+        /*!
+        * \fn startTracking
+        * \brief Start trackball tracking from a given point
+        */
+        void startTracking(glm::vec2 _point)
+        {
+            m_center = _point; // !! @ 
+
+            m_vStart = mapMousePointToUnitSphere(_point);
+            m_qStart = glm::quat(m_qCurrent);
+            m_tracking = true;
+        }
+
+
+        /*!
+        * \fn stopTracking
+        * \brief Stop trackball tracking
+        */
+        void stopTracking()
+        {
+            m_tracking = false;
+        }
+
+
+        /*!
+        * \fn startTracking
+        * \brief Rotate trackball to match a new given position (i.e., mouse movement)
+        */
+        void move(glm::vec2 _point)
+        {
+            // get new position
+            glm::vec3 vCurrent = mapMousePointToUnitSphere(_point);
+            // calculate rotation axis between init and new positions
+            glm::vec3 rotationAxis = glm::cross(m_vStart, vCurrent);
+            // calculate rotation angle between init and new positions
+            float dotProduct = std::max(std::min(glm::dot(m_vStart, vCurrent), 1.0f), -1.0f);
+            float rotationAngle = std::acos(dotProduct);
+
+            float eps = 0.01f;
+            if (rotationAngle < eps) 
+            {
+                // no rotation is angle is small
+                m_qCurrent = glm::quat(m_qStart);
+            }
+            else 
+            {
+                // Note: here we provide rotationAngle in radians. Older versions
+                // of GLM (0.9.3 or earlier) require the angle in degrees.
+
+                // build quaternion from rotation angle and axis
+                glm::quat q = glm::angleAxis(rotationAngle, rotationAxis);
+                q = glm::normalize(q);
+                m_qCurrent = glm::normalize(glm::cross(q, m_qStart));
+            }
+        }
+
+
+        /*!
+        * \fn getRotationMatrix
+        * \brief Get trackball orientation (quaternion) as a rotation matrix.
+        */
+        glm::mat4 getRotationMatrix()
+        {
+            return glm::mat4_cast(m_qCurrent);
+        }
+
+
+        /*!
+        * \fn isTracking
+        * \brief Tracking state getter
+        */
+        bool isTracking() { return m_tracking; }
+
+}; // end class Trackball
+
+
+
+
+
+/*!
+* \class Camera
+* \brief Handles camera matrices
+*/
+class Camera
+{
+    private:
+
+        glm::mat4 m_projectionMatrix;     /*!< Perspective projection matrix */
+        glm::mat4 m_viewMatrix;           /*!< View matrix */
+
+        float m_nearPlane;                /*!< distance to near clip plane */
+        float m_farPlane;                 /*!< distance to far clip plane */
+        float m_fovy;                     /*!< field of view angle */
+        float m_aspect;                   /*!< aspect ration */
+        float m_zoomFactor;               /*!< factor applied to fov for zoom effect */
+        float m_orthoOpening;             /*!< dimension of window to capture for orthognal projection */
+
+
+    public:
+
+
+        /*!
+        * \fn Camera
+        * \brief Default constructor
+        */
+        Camera() : m_projectionMatrix(glm::mat4(1.0f)),
+                   m_viewMatrix(glm::mat4(1.0f)),
+                   m_nearPlane(0.1f),
+                   m_farPlane(50.0f),
+                   m_fovy(45.0f),
+                   m_aspect(3.0f/4.0f),
+                   m_zoomFactor(1.0f)
+        {}
+
+
+        /*!
+        * \fn init
+        * \brief Initialize camera attributes  and matrices
+        *
+        * \param _near : distance to near clip plane
+        * \param _far : distance to far clip plane
+        * \param _fov : field of view angle
+        * \param _zoomFactor : factor applied to fov for zoom effect
+        * \param _width : viewport width
+        * \param _height : viewport height
+        * \param _camCoords : 3D coords of the camera position
+        * \param _centerCoords : 3D coords of the scene's center (i.e., the position to look at)
+        * \param _projType : projection type: perspective = 0, orthogonal = 1
+        * \param _radScene : radius of the scene (for orthogonal projection only)
+        */
+        void init(float _near, float _far, float _fov, float _zoomFactor, int _width, int _height, glm::vec3 _camCoords, glm::vec3 _centerCoords, int _projType, float _radScene = 0.0f)
+        {
+            m_nearPlane = _near; 
+            m_farPlane = _far;
+            m_fovy = _fov;
+            m_orthoOpening = _radScene*2.0f;
+
+            initProjectionMatrix(_width, _height, _zoomFactor, _projType);
+            initViewMatrix(_camCoords, _centerCoords);
+        }
+
+
+        /*!
+        * \fn initProjectionMatrix
+        * \brief Initialize the perspective projection matrix given the viewport dimensions and zoom factor 
+        * \param _projType : 3projection type: perspective = 0, orthogonal = 1
+        */
+        void initProjectionMatrix(int _width, int _height, float _zoomFactor, int _projType)
+        {
+            m_aspect = (float)_width /  (float)_height;
+            m_zoomFactor = _zoomFactor;
+
+            if(_projType == 0)
+                m_projectionMatrix = glm::perspective(glm::radians(m_fovy) * m_zoomFactor, m_aspect, m_nearPlane, m_farPlane);
+            else if(_projType==1)
+                m_projectionMatrix = glm::ortho(-m_orthoOpening, m_orthoOpening, -m_orthoOpening, m_orthoOpening, m_nearPlane, m_farPlane);
+            else
+                std::cerr << "[WARNING] Camera::initProjectionMatrix(): projection type shuld be either 0 (perspective) or 1 (orthogonal):" << std::endl;
+        }
+
+
+        /*!
+        * \fn initViewMatrix
+        * \brief Initialize view matrix given the 3D coords of the camera position and the scene's center (i.e., the position to look at)
+        */
+        void initViewMatrix(glm::vec3 _camCoords, glm::vec3 _centerCoords)
+        {
+            m_viewMatrix = glm::lookAt(_camCoords, _centerCoords, glm::vec3(0, 1, 0) );
+        }
+
+
+        /*!
+        * \fn getProjectionMatrix
+        * \brief ProjectionMatrix getter
+        */
+        glm::mat4 getProjectionMatrix() { return m_projectionMatrix; }
+
+
+        /*!
+        * \fn getViewMatrix
+        * \brief ViewMatrix getter
+        */
+        glm::mat4 getViewMatrix() { return m_viewMatrix; }
+
+
+}; // end class Camera
+
+
+
+
+        /*------------------------------------------------------------------------------------------------------------+
+        |                                            MISC. FUNCTIONS                                                  |
+        +------------------------------------------------------------------------------------------------------------*/
+
+
+
+/*!
+* \fn sphericalToEuclidean
+* \brief Spherical coordinates to Euclidean coordinates
+* \param _spherical : spherical 3D coords
+* \return 3D Euclidean coords
+*/
+glm::vec3 sphericalToEuclidean(glm::vec3 _spherical)
+{
+    return glm::vec3( sin(_spherical.x) * cos(_spherical.y),
+                      sin(_spherical.y),
+                      cos(_spherical.x) * cos(_spherical.y) ) * _spherical.z;
+}
+
+
+
+/*!
+* \fn readShaderSource
+* \brief read shader program and copy it in a string
+* \param _filename : shader file name
+* \return string containing shader program
+*/
+std::string readShaderSource(const std::string& _filename)
+{
+    std::ifstream file(_filename);
+    std::stringstream stream;
+    stream << file.rdbuf();
+
+    return stream.str();
+}
+
+
+
+/*!
+* \fn showShaderInfoLog
+* \brief print out shader info log (i.e. compilation errors)
+* \param _shader : shader
+*/
+void showShaderInfoLog(GLuint _shader)
+{
+    GLint infoLogLength = 0;
+    glGetShaderiv(_shader, GL_INFO_LOG_LENGTH, &infoLogLength);
+    std::vector<char> infoLog(infoLogLength);
+    glGetShaderInfoLog(_shader, infoLogLength, &infoLogLength, &infoLog[0]);
+    std::string infoLogStr(infoLog.begin(), infoLog.end());
+    std::cerr << "[SHADER INFOLOG] " << infoLogStr << std::endl;
+}
+
+
+
+/*!
+* \fn showProgramInfoLog
+* \brief print out program info log (i.e. linking errors)
+* \param _program : program
+*/
+void showProgramInfoLog(GLuint _program)
+{
+    GLint infoLogLength = 0;
+    glGetProgramiv(_program, GL_INFO_LOG_LENGTH, &infoLogLength);
+    std::vector<char> infoLog(infoLogLength);
+    glGetProgramInfoLog(_program, infoLogLength, &infoLogLength, &infoLog[0]);
+    std::string infoLogStr(infoLog.begin(), infoLog.end());
+    std::cerr << "[PROGRAM INFOLOG] " << infoLogStr << std::endl;
+}
+
+
+
+/*!
+* \fn loadShaderProgram
+* \brief load shader program from shader files
+* \param _vertShaderFilename : vertex shader filename
+* \param _fragShaderFilename : fragment shader filename
+*/
+GLuint loadShaderProgram(const std::string& _vertShaderFilename, const std::string& _fragShaderFilename, const std::string& _vertHeader="", const std::string& _fragHeader="")
+{
+    // read headers
+    std::string vertHeaderSource, fragHeaderSource;
+    vertHeaderSource = readShaderSource(_vertHeader);
+    fragHeaderSource = readShaderSource(_fragHeader);
+
+
+    // Load and compile vertex shader
+    GLuint vertexShader = glCreateShader(GL_VERTEX_SHADER);
+    std::string vertexShaderSource = readShaderSource(_vertShaderFilename);
+    if(!_vertHeader.empty() )
+    {
+        // if headers are provided, add them to the shader
+        const char *vertSources[2] = {vertHeaderSource.c_str(), vertexShaderSource.c_str()};
+        glShaderSource(vertexShader, 2, vertSources, nullptr);
+    }
+    else
+    {
+        // if no header provided, the shader is contained in a single file
+        const char *vertexShaderSourcePtr = vertexShaderSource.c_str();
+        glShaderSource(vertexShader, 1, &vertexShaderSourcePtr, nullptr);
+    }
+    glCompileShader(vertexShader);
+    GLint success = 0;
+    glGetShaderiv(vertexShader, GL_COMPILE_STATUS, &success);
+    if (!success) 
+    {
+        std::cerr << "[ERROR] loadShaderProgram(): Vertex shader compilation failed:" << std::endl;
+        showShaderInfoLog(vertexShader);
+        glDeleteShader(vertexShader);
+        return 0;
+    }
+
+
+    // Load and compile fragment shader
+    GLuint fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
+    std::string fragmentShaderSource = readShaderSource(_fragShaderFilename);
+    if(!_fragHeader.empty() )
+    {
+        // if headers are provided, add them to the shader
+        const char *fragSources[2] = {fragHeaderSource.c_str(), fragmentShaderSource.c_str()};
+        glShaderSource(fragmentShader, 2, fragSources, nullptr);
+    }
+    else
+    {
+        // if no header provided, the shader is contained in a single file
+        const char *fragmentShaderSourcePtr = fragmentShaderSource.c_str();
+        glShaderSource(fragmentShader, 1, &fragmentShaderSourcePtr, nullptr);
+    }
+    glCompileShader(fragmentShader);
+    success = 0;
+    glGetShaderiv(fragmentShader, GL_COMPILE_STATUS, &success);
+    if (!success) 
+    {
+        std::cerr << "[ERROR] loadShaderProgram(): Fragment shader compilation failed:" << std::endl;
+        showShaderInfoLog(fragmentShader);
+        glDeleteShader(vertexShader);
+        glDeleteShader(fragmentShader);
+        return 0;
+    }
+
+
+    // Create program object
+    GLuint program = glCreateProgram();
+
+    // Attach shaders to the program
+    glAttachShader(program, vertexShader);
+    glAttachShader(program, fragmentShader);
+
+
+    // Link program
+    glLinkProgram(program);
+
+    // Check linking status
+    success = 0;
+    glGetProgramiv(program, GL_LINK_STATUS, &success);
+    if (!success) 
+    {
+        std::cerr << "[ERROR] loadShaderProgram(): Linking failed:" << std::endl;
+        showProgramInfoLog(program);
+        glDeleteProgram(program);
+        glDeleteShader(vertexShader);
+        glDeleteShader(fragmentShader);
+        return 0;
+    }
+
+    // Clean up
+    glDetachShader(program, vertexShader);
+    glDetachShader(program, fragmentShader);
+
+    return program;
+}
+
+
+
+/*!
+* \fn buildShadowFBOandTex
+* \brief Generate a FBO and attach a texture to its depth output (used for shadow maps generation)
+* \param _shadowFBO : pointer to id of FBO to generate
+* \param _shadowMapTex : pointer to id of texture to generate 
+* \param _texWidth : texture width
+* \param _texHeight : texture height
+*/
+void buildShadowFBOandTex(GLuint *_shadowFBO, GLuint *_shadowMapTex, unsigned int _texWidth, unsigned int _texHeight)
+{
+    // NOTE: this function takes POINTERS  *_shadowFBO and *_shadowMapTex as input
+    // If we had _shadowFBO and _shadowMapTex as parameters, we would get a COPY of these values and 
+    // therefore the generated FBO and texture would not be accessible in Main.cpp 
+
+    // generate FBO 
+    glGenFramebuffers(1, _shadowFBO);       // we use _shadowFBO instead of &_shadowFBO because _shadowFBO is already a pointer
+
+    // generate texture
+    glGenTextures(1, _shadowMapTex);        // we use _shadowMapTex instead of &_shadowMapTex because _shadowMapTex is ALREADY a pointer
+    glBindTexture(GL_TEXTURE_2D, *_shadowMapTex);       // we use *_shadowMapTex instead of _shadowMapTex because _shadowMapTex is a pointer and here we want the value of the variable (1)
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, _texWidth, _texHeight, 0, GL_DEPTH_COMPONENT, GL_FLOAT, nullptr);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER); 
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+    float borderColor[] = { 1.0f, 1.0f, 1.0f, 1.0f };   // border color set to white to avoid fake shadow outside shadowmap
+    glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor); 
+
+    // bind FBO
+    glBindFramebuffer(GL_FRAMEBUFFER, *_shadowFBO);     // see (1)
+
+    // attach texture to the depth output of FBO
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, *_shadowMapTex, 0);       // see (1)
+
+    // we are not going to render any color
+    glDrawBuffer(GL_NONE);
+
+    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+        std::cerr << "[ERROR] buildShadowFBOandTex(): Shadow FBO incomplete" <<std::endl;
+    }
+
+    // Bind default framebuffer
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);  
+}
+
+
+
+/*!
+* \fn buildScreenFBOandTex
+* \brief Generate a FBO and attach a texture to its color output (used for variousscreen texture generation)
+*        - can use a renderbuffer to handle depth buffering (for 3D geometry rendering) 
+         - can initialize texture with null alpha value (for TSD texture generation)
+* \param _screenFBO : pointer to id of FBO to generate
+* \param _screenTex : pointer to id of texture to generate 
+* \param _texWidth : texture width
+* \param _texHeight : texture height
+* \param _useRenderBuffer : use a renderbuffer or not
+* \param _nullAlpha : initialize texture with null alpha or not
+*/
+void buildScreenFBOandTex(GLuint *_screenFBO, GLuint *_screenTex, unsigned int _texWidth, unsigned int _texHeight, bool _useRenderBuffer, bool _nullAlpha )
+{
+
+    // generate FBO 
+    glGenFramebuffers(1, _screenFBO);      
+
+    // generate texture
+    glGenTextures(1, _screenTex);
+    glBindTexture(GL_TEXTURE_2D, *_screenTex);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F,  _texWidth, _texHeight, 0, GL_RGBA, GL_FLOAT, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    
+    // bind FBO
+    glBindFramebuffer(GL_FRAMEBUFFER, *_screenFBO);
+
+    // attach textures to color output of the FBO
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, *_screenTex, 0);
+
+    if(_nullAlpha)
+    {   
+        glDrawBuffer(GL_COLOR_ATTACHMENT0); //Only need to do this once.
+        // make sure that alphae channel is set to zero everywhere (for gaussian blur mask in TSD)
+        GLuint clearColor[4] = {0, 0, 0, 0};
+        glClearBufferuiv(GL_COLOR, 0, clearColor);
+    }
+
+    if(_useRenderBuffer)
+    {
+        // create and attach depth buffer (renderbuffer) to handle polygon occlusion properly (for 3D geometry rendering)
+        unsigned int rboScreen;
+        glGenRenderbuffers(1, &rboScreen);
+        glBindRenderbuffer(GL_RENDERBUFFER, rboScreen);
+        glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, _texWidth, _texHeight);
+        glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, rboScreen);
+    }
+
+    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+        std::cerr << "[ERROR] buildScreenFBOandTex(): screen FBO incomplete" <<std::endl;
+    }
+
+    // Bind default framebuffer
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);  
+}
+
+
+
+/*!
+* \fn buildGbuffFBOandTex
+* \brief Generate a FBO and attach textures to 2 color outputs (used for G-buffer textures generation)
+*        Use a renderbuffer to handle depth buffering
+* \param _gFBO : pointer to id of FBO to generate
+* \param _gPosition : pointer to id of texture to generate for 1st color output
+* \param _gNormal : pointer to id of texture to generate for 2nd color output
+* \param _gColor : pointer to id of texture to generate for 3rd color output
+* \param _texWidth : texture width
+* \param _texHeight : texture height
+*/
+void buildGbuffFBOandTex(GLuint *_gFBO, GLuint * _gPosition, GLuint * _gNormal, GLuint * _gColor, unsigned int _texWidth, unsigned int _texHeight)
+{
+    // generate FBO 
+    glGenFramebuffers(1, _gFBO);
+
+    // 1st texture (position buffer)
+    glGenTextures(1, _gPosition);
+    glBindTexture(GL_TEXTURE_2D, *_gPosition);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F,  _texWidth, _texHeight, 0, GL_RGBA, GL_FLOAT, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+    // 2nd texture (normal buffer)
+    glGenTextures(1, _gNormal);
+    glBindTexture(GL_TEXTURE_2D, *_gNormal);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, _texWidth, _texHeight, 0, GL_RGBA, GL_FLOAT, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+    // 3rdd texture (color buffer)
+    glGenTextures(1, _gColor);
+    glBindTexture(GL_TEXTURE_2D, *_gColor);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, _texWidth, _texHeight, 0, GL_RGBA, GL_FLOAT, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    
+    // bind FBO
+    glBindFramebuffer(GL_FRAMEBUFFER, *_gFBO);
+
+    // attach textures to different color outputs of the FBO
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, *_gPosition, 0);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, *_gNormal, 0);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, *_gColor, 0);
+
+    // handle multiple color attachments
+    GLenum attachments[3] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2 };
+    glDrawBuffers(3, attachments);
+
+    // create and attach depth buffer (renderbuffer)
+    unsigned int rboGbuff;
+    glGenRenderbuffers(1, &rboGbuff);
+    glBindRenderbuffer(GL_RENDERBUFFER, rboGbuff);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, _texWidth, _texHeight);
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, rboGbuff);
+
+    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+        std::cerr << "[ERROR] buildGbuffFBOandTex(): G-buffer FBO incomplete" <<std::endl;
+    }
+
+    // Bind default framebuffer
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);  
+}
+
+
+/*!
+* \fn buildTsdFBOandTex
+* \brief Generate a FBO and attach texture to its color outputs (TSD texture generation)
+*        Initializes texture with
+* \param _gFBO : pointer to id of FBO to generate
+* \param _gPosition : pointer to id of texture to generate for 1st color output
+* \param _gNormal : pointer to id of texture to generate for 2nd color output
+* \param _texWidth : texture width
+* \param _texHeight : texture height
+*/
+//void buildTsdFBOandTex(GLuint *_tsdFBO, GLuint *_tsdTex, unsigned int _texWidth, unsigned int _texHeight)
+//{
+//    // NOTE: this function takes POINTERS  *_shadowFBO and *_shadowMapTex as input
+//    // If we had _shadowFBO and _shadowMapTex as parameters, we would get a COPY of these values and 
+//    // therefore the generated FBO and texture would not be accessible in Main.cpp 
+//
+//    // generate shadow map FBO 
+//    glGenFramebuffers(1, _tsdFBO);       // we use _shadowFBO instead of &_shadowFBO because _shadowFBO is already a pointer
+//
+//    // generate shadow map texture
+//    glGenTextures(1, _tsdTex);        // we use _shadowMapTex instead of &_shadowMapTex because _shadowMapTex is ALREADY a pointer
+//    glBindTexture(GL_TEXTURE_2D, *_tsdTex);       // we use *_shadowMapTex instead of _shadowMapTex because _shadowMapTex is a pointer and here we want the value of the variable (1)
+//    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16, _texWidth, _texHeight, 0, GL_RGBA, GL_FLOAT, nullptr);
+//    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+//    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+//    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER); 
+//    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+//
+//
+//
+//    // bind shadow FBO
+//    glBindFramebuffer(GL_FRAMEBUFFER, *_tsdFBO);     // see (1)
+//
+//    // attach shadow texture to the depth output of shadow FBO (depth output)
+//    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, *_tsdTex, 0);       // see (1)
+//    // Optionnal: make sure that alphae channel is set to zero everywhere (for gaussian blut in TSD)
+//    GLuint clearColor[4] = {0, 0, 0, 0};
+//    glClearBufferuiv(GL_COLOR, 0, clearColor);
+//
+//    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+//        std::cerr << "[ERROR] buildShadowFBOandTex(): Shadow FBO incomplete" <<std::endl;
+//    }
+//
+//    // Bind default framebuffer
+//    glBindFramebuffer(GL_FRAMEBUFFER, 0);  
+//}
+
+
+//void buildSSAOFBOandTex(GLuint *_SSAOFBO, GLuint *_SSAOTex, unsigned int _texWidth, unsigned int _texHeight)
+//{
+//
+//    // generate shadow map FBO 
+//    glGenFramebuffers(1, _SSAOFBO);       // we use _screenFBO instead of &_screenFBO because _screenFBO is already a pointer
+//
+//    // - position color buffer
+//    glGenTextures(1, _SSAOTex);
+//    glBindTexture(GL_TEXTURE_2D, *_SSAOTex);
+//    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F,  _texWidth, _texHeight, 0, GL_RGBA, GL_FLOAT, NULL);
+//    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+//    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+//    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER); 
+//    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+//    
+//
+//    // bind shadow FBO
+//    glBindFramebuffer(GL_FRAMEBUFFER, *_SSAOFBO);
+//    // attach textures to different color outputs of the FBO
+//    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, *_SSAOTex, 0);
+//
+//
+//    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+//        std::cerr << "[ERROR] buildScreenFBOandTex(): screen FBO incomplete" <<std::endl;
+//    }
+//
+//    // Bind default framebuffer
+//    glBindFramebuffer(GL_FRAMEBUFFER, 0);  
+//}
+
+
+
+/*
+ * cf. https://learnopengl.com/Advanced-Lighting/SSAO
+ */
+
+float lerp(float a, float b, float f)
+{
+    return a + f * (b - a);
+}  
+
+std::vector<glm::vec3> buildRandKernel()
+{
+    // generate sample kernel 
+    std::uniform_real_distribution<float> randomFloats(0.0, 1.0); // random floats between 0.0 and 1.0
+    std::default_random_engine generator;
+    std::vector<glm::vec3> ssaoKernel;
+    //for (unsigned int i = 0; i < 64; ++i)
+    //{
+    //    glm::vec3 sample( randomFloats(generator) * 2.0 - 1.0, 
+    //                      randomFloats(generator) * 2.0 - 1.0, 
+    //                      randomFloats(generator) );
+    //    sample  = glm::normalize(sample);
+    //    sample *= randomFloats(generator);
+    //    float scale = (float)i / 64.0; 
+
+    //    // scale samples s.t. they're more aligned to center of kernel
+    //    scale = lerp(0.1f, 1.0f, scale * scale);
+    //    sample *= scale;
+    //    ssaoKernel.push_back(sample);  
+    //}
+
+    int i = 0;
+    while(i < 64)//for (unsigned int i = 0; i < 64; ++i)
+    {
+        glm::vec3 sample( randomFloats(generator) * 2.0 - 1.0, 
+                          randomFloats(generator) * 2.0 - 1.0, 
+                          randomFloats(generator) );
+        if( glm::length(sample) <= 1.0)
+        {
+            sample  = glm::normalize(sample);
+            sample *= randomFloats(generator);
+            float scale = (float)i / 64.0f; 
+
+            // scale samples s.t. they're more aligned to center of kernel
+            scale = lerp(0.1f, 1.0f, scale * scale);
+            //sample *= scale;                      // remove artifacts !!!
+            ssaoKernel.push_back(sample);  
+            i++;
+        }
+    }
+
+    return ssaoKernel;
+}
+
+void buildKernelRot(GLuint *_noiseTex)
+{
+    std::uniform_real_distribution<float> randomFloats(0.0, 1.0); // random floats between 0.0 and 1.0
+    std::default_random_engine generator;
+
+    //create a 4x4 array of random rotation vectors oriented around the tangent-space surface normal
+    std::vector<glm::vec3> ssaoNoise;
+    for (unsigned int i = 0; i < 16; i++)
+    {
+        glm::vec3 noise( randomFloats(generator) * 2.0 - 1.0, 
+                         randomFloats(generator) * 2.0 - 1.0, 
+                         0.0f ); 
+
+        ssaoNoise.push_back(noise);
+    } 
+
+    glGenTextures(1, _noiseTex);
+    glBindTexture(GL_TEXTURE_2D, *_noiseTex);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, 4, 4, 0, GL_RGB, GL_FLOAT, &ssaoNoise[0]);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);  
+}
+
+#endif // TOOLS_H
