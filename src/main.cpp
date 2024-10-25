@@ -26,7 +26,7 @@
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_opengl3.h"
 
-#include "tools.h"
+#include "utils.h"
 #include "drawablemesh.h"
 
 
@@ -36,15 +36,15 @@ int m_winWidth = 1024;          /*!<  window width (XGA) */
 int m_winHeight = 720;          /*!<  window height (XGA) */
 const unsigned int TEX_WIDTH = 2048, TEX_HEIGHT = 2048; /*!< textures dimensions  */
 
-Trackball m_trackball;          /*!<  model trackball */
+GLtools::Trackball m_trackball; /*!<  model trackball */
 
 // Scene
 glm::vec3 m_centerCoords;       /*!<  coords of the center of the scene */
 float m_radScene;               /*!< radius of the scene (i.e., diagonal of the BBox) */
 
 // Light and cameras 
-Camera m_camera;                /*!<  camera */
-Camera m_cameraLight;           /*!<  light camera for shadow map */
+GLtools::Camera m_camera;       /*!<  camera */
+GLtools::Camera m_cameraLight;  /*!<  light camera for shadow map */
 float m_zoomFactor;             /*!<  zoom factor */
 glm::vec3 m_camPos;             /*!<  camera position */
 glm::vec3 m_lightSpherePosInit; /*!<  light source initial position in spherical coords (zenith, azimuth, radius) */
@@ -57,11 +57,11 @@ float m_lightCamNearRad;        /*!< distance between scene center and light cam
 float m_lightCamFarRad;         /*!< distance between scene center and light camera far plane (NOT light camera far distance ! ) */
 
 // 3D objects
-TriMesh* m_triMesh;             /*!<  triangle mesh */
-DrawableMesh* m_drawMesh;       /*!<  drawable object: mesh object */
-DrawableMesh* m_drawQuad;       /*!<  drawable object: screen quad */
-DrawableMesh* m_drawFloor;      /*!<  drawable object: floor quad */
-DrawableMesh* m_drawSkybox;     /*!<  drawable object: skybox */
+std::unique_ptr<TriMesh> m_triMesh;             /*!<  triangle mesh */
+std::unique_ptr<DrawableMesh> m_drawMesh;       /*!<  drawable object: mesh object */
+std::unique_ptr<DrawableMesh> m_drawQuad;       /*!<  drawable object: screen quad */
+std::unique_ptr<DrawableMesh> m_drawFloor;      /*!<  drawable object: floor quad */
+std::unique_ptr<DrawableMesh> m_drawSkybox;     /*!<  drawable object: skybox */
 
 glm::mat4 m_modelMatrix;        /*!<  model matrix of the mesh */
     
@@ -159,13 +159,13 @@ const char *m_fileCubeMapList[] =   { "Church",
 
 
 std::string shaderDir = "../../src/shaders/";   /*!< relative path to shaders folder  */
-std::string modelDir = "../../models/";   /*!< relative path to meshes and textures files folder  */
+std::string modelDir = "../../models/";         /*!< relative path to meshes and textures files folder  */
 
 
 // Functions definitions
 
 void initialize();
-void initScene(TriMesh *_triMesh);
+void initScene();
 void setupImgui(GLFWwindow *window);
 void update();
 void displayShadowMap();
@@ -173,6 +173,7 @@ void displayGBuffering();
 void displayLighting();
 void displayTSD();
 void displaySSAO();
+void displaySSLR();
 void resizeCallback(GLFWwindow* window, int width, int height);
 void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods);
 void charCallback(GLFWwindow* window, unsigned int codepoint);
@@ -207,24 +208,24 @@ void initialize()
     m_modelMatrix = glm::mat4(1.0f);
 
     // init mesh
-    m_triMesh = new TriMesh(true, false, false);
+    m_triMesh = std::make_unique<TriMesh>(true, false, false);
     m_triMesh->readFile(modelDir + "teapot.obj");
 
-    initScene(m_triMesh);
+    initScene();
 
     // setup mesh rendering
-    m_drawMesh = new DrawableMesh;
-    m_drawMesh->createMeshVAO(m_triMesh);
+    m_drawMesh = std::make_unique<DrawableMesh>();
+    m_drawMesh->createMeshVAO(*m_triMesh);
 
     // setup screen quad rendering
-    m_drawQuad = new DrawableMesh;
+    m_drawQuad = std::make_unique<DrawableMesh>();
     m_drawQuad->createQuadVAO(SCREEN);
 
     // setup floor quad rendering
-    m_drawFloor = new DrawableMesh;
+    m_drawFloor = std::make_unique<DrawableMesh>();
     m_drawFloor->createQuadVAO(FLOOR, bBoxMin.y, m_centerCoords, m_radScene);
 
-    m_drawSkybox = new DrawableMesh;
+    m_drawSkybox = std::make_unique<DrawableMesh>();
     m_drawSkybox->createCubeVAO( m_centerCoords, m_radScene);
 
     // shader headers: function and declarations shared by several shader programs
@@ -273,7 +274,7 @@ void initialize()
 }
 
 
-void initScene(TriMesh *_triMesh)
+void initScene()
 {
     m_triMesh->computeAABB();
     bBoxMin = m_triMesh->getBBoxMin();
@@ -423,7 +424,7 @@ void displayLighting()
         // Bind dedicated FBO if the results must be saved in mesh texture for TSD
 
         if (m_modelType != 1 && m_modelType != 2) 
-            std::cerr << "[ERROR] Main::Display(): Cannot apply texture space diffusion without UV map" << std::endl;
+            errorLog() << "Main::Display(): Cannot apply texture space diffusion without UV map";
 
         // bind dedicated FBO
         glBindFramebuffer(GL_FRAMEBUFFER, m_tsdFBO);
@@ -467,10 +468,11 @@ void displayLighting()
 
 
     // draw objects
-    m_drawMesh->draw(m_programLighting, modelMat, viewMat, projMat, sphericalToEuclidean(m_lightSpherePos), m_camPos, m_lightCol, lightSpaceMat, m_maxDistLight);
+    glm::vec3 lightEuclidPos = GLtools::sphericalToEuclidean(m_lightSpherePos);
+    m_drawMesh->draw(m_programLighting, modelMat, viewMat, projMat, lightEuclidPos, m_camPos, m_lightCol, lightSpaceMat, m_maxDistLight);
 
     if(m_isFloorOn && !m_isTSDOn)
-        m_drawFloor->draw(m_programLighting, modelMat, viewMat, projMat, sphericalToEuclidean(m_lightSpherePos), m_camPos, m_lightCol, lightSpaceMat, m_maxDistLight);
+        m_drawFloor->draw(m_programLighting, modelMat, viewMat, projMat, lightEuclidPos, m_camPos, m_lightCol, lightSpaceMat, m_maxDistLight);
 
 
     // draw sky box
@@ -542,8 +544,10 @@ void displayTSD()
 
         // draw floor
         if(m_isFloorOn)
-            m_drawFloor->draw(m_programLighting, modelMat, viewMat, projMat, sphericalToEuclidean(m_lightSpherePos), m_camPos, m_lightCol, lightSpaceMat, m_maxDistLight);
-
+        {
+            glm::vec3 lightEuclidPos = GLtools::sphericalToEuclidean(m_lightSpherePos);
+            m_drawFloor->draw(m_programLighting, modelMat, viewMat, projMat, lightEuclidPos, m_camPos, m_lightCol, lightSpaceMat, m_maxDistLight);
+        }
 
         // draw skybox
         if(m_isEnvMapOn)
@@ -953,11 +957,11 @@ void runGUI()
                         m_triMesh->readFile( modelDir + std::string(m_filePBRMeshList[m_fileMesh]) + ".obj" );
                         m_triMesh->computeTB();
                     }
-                    initScene(m_triMesh);
+                    initScene();
 
                     // setup mesh rendering
-                    m_drawMesh = new DrawableMesh;
-                    m_drawMesh->createMeshVAO(m_triMesh);
+                    m_drawMesh = std::make_unique<DrawableMesh>();
+                    m_drawMesh->createMeshVAO(*m_triMesh);
                     m_drawMesh->setAlbedoTexFlag(m_isAlbedoTexOn);
                     m_drawMesh->setEnvMapReflecFlag(m_isEnvReflecOn);
                     m_drawMesh->setEnvMapReflecFlag(m_isEnvRefracOn);
@@ -991,7 +995,7 @@ void runGUI()
                     }
 
                     // setup floor quad rendering
-                    m_drawFloor = new DrawableMesh;
+                    m_drawFloor = std::make_unique<DrawableMesh>();
                     m_drawFloor->createQuadVAO(FLOOR, bBoxMin.y, m_centerCoords, m_radScene);
                     m_drawFloor->setShadowMapFlag(m_isShadowOn);
                 }

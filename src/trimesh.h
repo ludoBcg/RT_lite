@@ -104,7 +104,7 @@ class TriMesh
         * \param _filename : name of the file to read
         * \return false if file extension is not supported, true if it is
         */
-        bool readFile(std::string _filename);
+        bool readFile(const std::string& _filename);
 
         /*!
         * \fn computeAABB
@@ -155,7 +155,7 @@ class TriMesh
         * \brief read OBJ file
         * \param _filename: name of file
         */
-        bool importOBJ(const std::string &_filename);
+        bool importOBJ(const std::string& _filename);
 
         /*!
         * \fn compTandBTt

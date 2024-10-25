@@ -61,7 +61,7 @@ DrawableMesh::~DrawableMesh()
 }
 
 
-void DrawableMesh::createMeshVAO(TriMesh* _triMesh)
+void DrawableMesh::createMeshVAO(TriMesh& _triMesh)
 {
     // read vertices from mesh object and fill in VAO
     fillVAO(_triMesh, true);
@@ -77,7 +77,7 @@ void DrawableMesh::createQuadVAO(int _type, float _y, glm::vec3 _centerCoords, f
     {
         // SCREEN
         if(_radScene != 0.0f)
-            std::cerr << "[WARNING] DrawableMesh::createQuadVAO(): Create screen quad: radius of the scene is not null" << std::endl;
+            warningLog() << "DrawableMesh::createQuadVAO(): Create screen quad: radius of the scene is not null";
 
         // generate a quad in front of the camera
         vertices = { glm::vec3(-1.0f, -1.0f, 0.0f), glm::vec3(1.0f, -1.0f, 0.0f), glm::vec3(1.0f, 1.0f, 0.0f), glm::vec3(-1.0f, 1.0f, 0.0f) };
@@ -87,7 +87,7 @@ void DrawableMesh::createQuadVAO(int _type, float _y, glm::vec3 _centerCoords, f
     {
         // FLOOR
         if(_radScene == 0.0f)
-            std::cerr << "[WARNING] DrawableMesh::createQuadVAO(): Create floor quad: radius of the scene is null" << std::endl;
+            warningLog() << "DrawableMesh::createQuadVAO(): Create floor quad: radius of the scene is null";
 
         // generate a quad on the XZ axis, centered on the scene center.
         // Dimension adapted to the size of the scene.
@@ -162,7 +162,7 @@ void DrawableMesh::createQuadVAO(int _type, float _y, glm::vec3 _centerCoords, f
 }
 
 
-void DrawableMesh::createCubeVAO(glm::vec3 _centerCoords, float _radScene)
+void DrawableMesh::createCubeVAO(glm::vec3& _centerCoords, float _radScene)
 {
     glm::vec3 maxPt = _centerCoords + glm::vec3(_radScene * 13.0f);
     glm::vec3 minPt = _centerCoords - glm::vec3(_radScene * 13.0f);
@@ -213,14 +213,14 @@ void DrawableMesh::createCubeVAO(glm::vec3 _centerCoords, float _radScene)
 }
 
 
-void DrawableMesh::updateMeshVAO(TriMesh* _triMesh)
+void DrawableMesh::updateMeshVAO(TriMesh& _triMesh)
 {
     // read vertices from mesh file and fill in VAO
     fillVAO(_triMesh, false);
 }
 
 
-void DrawableMesh::fillVAO(TriMesh* _triMesh, bool _create)
+void DrawableMesh::fillVAO(TriMesh& _triMesh, bool _create)
 {
     // mandatory data
     std::vector<glm::vec3> vertices;
@@ -233,14 +233,14 @@ void DrawableMesh::fillVAO(TriMesh* _triMesh, bool _create)
     std::vector<glm::vec3> tangents;
     std::vector<glm::vec3> bitangents;
 
-    _triMesh->getVertices(vertices);
-    _triMesh->getNormals(normals);
-    _triMesh->getIndices(indices);
+    _triMesh.getVertices(vertices);
+    _triMesh.getNormals(normals);
+    _triMesh.getIndices(indices);
 
-    _triMesh->getColors(colors);
-    _triMesh->getTexCoords(texcoords);
-    _triMesh->getTangents(tangents);
-    _triMesh->getBitangents(bitangents);
+    _triMesh.getColors(colors);
+    _triMesh.getTexCoords(texcoords);
+    _triMesh.getTangents(tangents);
+    _triMesh.getBitangents(bitangents);
 
     // update flags according to data provided
     vertices.size() ?  m_vertexProvided = true :  m_vertexProvided = false;
@@ -252,11 +252,11 @@ void DrawableMesh::fillVAO(TriMesh* _triMesh, bool _create)
     bitangents.size() ?  m_bitangentProvided = true :  m_bitangentProvided = false;
 
     if(!m_vertexProvided)
-        std::cerr << "[WARNING] DrawableMesh::createVAO(): No vertex provided" << std::endl;
+        warningLog() << "DrawableMesh::createVAO(): No vertex provided";
     if(!m_normalProvided)
-        std::cerr << "[WARNING] DrawableMesh::createVAO(): No normal provided" << std::endl;
+        warningLog() << "DrawableMesh::createVAO(): No normal provided";
     if(!m_indexProvided)
-        std::cerr << "[WARNING] DrawableMesh::createVAO(): No index provided" << std::endl;
+        warningLog() << "DrawableMesh::createVAO(): No index provided";
 
     // Generates and populates a VBO for vertex coords
     if(_create)
@@ -388,7 +388,8 @@ void DrawableMesh::fillVAO(TriMesh* _triMesh, bool _create)
 }
 
 
-void DrawableMesh::draw(GLuint _program, glm::mat4 _modelMat, glm::mat4 _viewMat, glm::mat4 _projMat, glm::vec3 _lightPos,  glm::vec3 _camPos,  glm::vec3 _lightCol, glm::mat4 _lightMat, float _distLightMax)
+void DrawableMesh::draw(GLuint _program, glm::mat4& _modelMat, glm::mat4& _viewMat, glm::mat4& _projMat,
+                        glm::vec3& _lightPos,  glm::vec3& _camPos,  glm::vec3& _lightCol, glm::mat4& _lightMat, float _distLightMax)
 {
 
     if(m_shadedRenderOn)
@@ -538,7 +539,7 @@ void DrawableMesh::draw(GLuint _program, glm::mat4 _modelMat, glm::mat4 _viewMat
 }
 
 
-void DrawableMesh::drawSkyBox(GLuint _program, glm::mat4 _viewMat, glm::mat4 _projMat)
+void DrawableMesh::drawSkyBox(GLuint _program, glm::mat4& _viewMat, glm::mat4& _projMat)
 {
 
 
@@ -621,7 +622,7 @@ void DrawableMesh::drawScreenQuad(GLuint _program, GLuint _tex, bool _isBlurOn, 
 
 
 
-void DrawableMesh::drawScreenQuadSSAO(GLuint _program, glm::mat4 _projMat, GLuint _posTex, GLuint _normalTex, float _radius, float _screenWidth, float _screenHeight)
+void DrawableMesh::drawScreenQuadSSAO(GLuint _program, glm::mat4& _projMat, GLuint _posTex, GLuint _normalTex, float _radius, float _screenWidth, float _screenHeight)
 {
         // Activate program
         glUseProgram(_program);
@@ -669,7 +670,8 @@ void DrawableMesh::drawScreenQuadSSAO(GLuint _program, glm::mat4 _projMat, GLuin
 
 
 
-void DrawableMesh::drawScreenQuadSSLR(GLuint _program, glm::mat4 _modelMat, glm::mat4 _viewMat, glm::mat4 _projMat, GLuint _posTex, GLuint _normalTex, GLuint _screenTex, float _radius, float _screenWidth, float _screenHeight)
+void DrawableMesh::drawScreenQuadSSLR(GLuint _program, glm::mat4& _modelMat, glm::mat4& _viewMat, glm::mat4& _projMat,
+                                      GLuint _posTex, GLuint _normalTex, GLuint _screenTex, float _radius, float _screenWidth, float _screenHeight)
 {
         // Activate program
         glUseProgram(_program);
@@ -727,7 +729,8 @@ void DrawableMesh::drawScreenQuadSSLR(GLuint _program, glm::mat4 _modelMat, glm:
 }
 
 
-void DrawableMesh::drawScreenQuadFinal(GLuint _program, glm::mat4 _modelMat, glm::mat4 _viewMat, glm::mat4 _projMat, GLuint _ssaotex, GLuint _screenTex, int _occType)
+void DrawableMesh::drawScreenQuadFinal(GLuint _program, glm::mat4& _modelMat, glm::mat4& _viewMat, glm::mat4& _projMat,
+                                       GLuint _ssaotex, GLuint _screenTex, int _occType)
 {
         // Activate program
         glUseProgram(_program);
@@ -776,7 +779,7 @@ void DrawableMesh::drawScreenQuadFinal(GLuint _program, glm::mat4 _modelMat, glm
 }
 
 
-void DrawableMesh::drawTex(GLuint _program, glm::mat4 _modelMat, glm::mat4 _viewMat, glm::mat4 _projMat, GLuint _tex )
+void DrawableMesh::drawTex(GLuint _program, glm::mat4& _modelMat, glm::mat4& _viewMat, glm::mat4& _projMat, GLuint _tex )
 {
         // Activate program
         glUseProgram(_program);
@@ -814,7 +817,7 @@ void DrawableMesh::drawTex(GLuint _program, glm::mat4 _modelMat, glm::mat4 _view
 }
 
 
-void DrawableMesh::drawShadow(GLuint _program, glm::mat4 _lvp)
+void DrawableMesh::drawShadow(GLuint _program, glm::mat4& _lvp)
 {
 
     // Activate program
@@ -835,7 +838,7 @@ void DrawableMesh::drawShadow(GLuint _program, glm::mat4 _lvp)
 }
 
 
-void DrawableMesh::drawGbuffer(GLuint _program, glm::mat4 _modelMat, glm::mat4 _viewMat, glm::mat4 _projMat, bool _isFloor)
+void DrawableMesh::drawGbuffer(GLuint _program, glm::mat4& _modelMat, glm::mat4& _viewMat, glm::mat4& _projMat, bool _isFloor)
 {
     // Activate program
     glUseProgram(_program);
@@ -869,7 +872,7 @@ GLuint DrawableMesh::load2DTexture(const std::string& _filename, bool _repeat)
     unsigned error = lodepng::decode(data, width, height, _filename);
     if (error != 0) 
     {
-        std::cerr << "[ERROR] DrawableMesh::load2DTexture(): " << lodepng_error_text(error) << std::endl;
+        errorLog() << "DrawableMesh::load2DTexture(): " << lodepng_error_text(error);
         std::exit(EXIT_FAILURE);
     }
 
@@ -915,7 +918,7 @@ GLuint DrawableMesh::loadCubemap(const std::string& _dirname)
         unsigned int error = lodepng::decode(data[i], width, height, filename);
         if (error != 0) 
         {
-            std::cerr << "[ERROR] DrawableMesh::loadCubemap(): " << lodepng_error_text(error) << std::endl;
+            errorLog() << "DrawableMesh::loadCubemap(): " << lodepng_error_text(error);
             isValid = false;
         }
     }

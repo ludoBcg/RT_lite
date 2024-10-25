@@ -9,6 +9,8 @@
 
 #include "trimesh.h"
 
+#include "GLtools.h"
+
 
 TriMesh::TriMesh()
 {
@@ -45,7 +47,7 @@ void TriMesh::getVertices(std::vector<glm::vec3>& _vertices)
     }
     else
     {
-        std::cerr << "[WARNING] TriMesh::getVertices(): Empty vertices array" << std::endl;
+        warningLog() << "TriMesh::getVertices(): Empty vertices array";
     }
 }
 
@@ -61,7 +63,7 @@ void TriMesh::getNormals(std::vector<glm::vec3>& _normals)
     }
     else
     {
-        std::cerr << "[WARNING] TriMesh::getNormals(): Empty normals array" << std::endl;
+        warningLog() << "TriMesh::getNormals(): Empty normals array";
     }
 }
 
@@ -77,7 +79,7 @@ void TriMesh::getIndices(std::vector<uint32_t>& _indices)
     }
     else
     {
-        std::cerr << "[WARNING] TriMesh::getIndices(): Empty indices array" << std::endl;
+        warningLog() << "TriMesh::getIndices(): Empty indices array";
     }
 }
 
@@ -130,7 +132,7 @@ void TriMesh::getBitangents(std::vector<glm::vec3>& _bitangents)
 }
 
 
-bool TriMesh::readFile(std::string _filename)
+bool TriMesh::readFile(const std::string& _filename)
 {
     if(_filename.substr(_filename.find_last_of(".") + 1) == "obj")
     {
@@ -139,7 +141,7 @@ bool TriMesh::readFile(std::string _filename)
     }
     else
     {
-        std::cerr << "[ERROR] TriMesh::readFile(): Invalid file extension: only .obj are supported" << std::endl;
+        errorLog() << "TriMesh::readFile(): Invalid file extension: only .obj are supported";
     }
     return false;
 }
@@ -168,7 +170,7 @@ void TriMesh::computeAABB()
     }
     else
     {
-        std::cerr << "[WARNING] TriMesh::computeAABB(): Empty vertices array" << std::endl;
+        warningLog() << "TriMesh::computeAABB(): Empty vertices array";
         m_bBoxMin = glm::vec3(0.0f, 0.0f, 0.0f);
         m_bBoxMax = glm::vec3(0.0f, 0.0f, 0.0f);
     }
@@ -207,7 +209,7 @@ void TriMesh::computeTB()
 {
     if( m_normals.size() == 0)
     {
-        std::cerr << "[WARNING] TriMesh::computeTB(): normals not available" << std::endl; 
+        warningLog() << "TriMesh::computeTB(): normals not available"; 
         computeNormals();
     }
 
@@ -248,7 +250,7 @@ void TriMesh::computeTB()
     }
     else
     {
-        std::cerr << "[WARNING] TriMesh::computeTB(): texcoords not available" << std::endl; 
+        warningLog() << "TriMesh::computeTB(): texcoords not available"; 
     }
 }
 
@@ -257,7 +259,7 @@ void TriMesh::computeTB()
  * Read an Mesh from an .obj file. This function can read texture
  * coordinates and/or normals, in addition to vertex positions.
  */
-bool TriMesh::importOBJ(const std::string &_filename)
+bool TriMesh::importOBJ(const std::string& _filename)
 {
     struct uvec3Less 
     {
@@ -286,7 +288,7 @@ bool TriMesh::importOBJ(const std::string &_filename)
     std::ifstream f(_filename.c_str());
     if(!f.is_open()) 
     {
-        std::cerr << "[ERROR] TriMesh::importOBJ(): Could not open " << _filename << std::endl;
+        errorLog() << "TriMesh::importOBJ(): Could not open " << _filename;
         return false;
     }
 
@@ -409,12 +411,12 @@ bool TriMesh::importOBJ(const std::string &_filename)
     // Compute normals (if OBJ-file did not contain normals)
     if(m_normals.size() == 0) 
     {
-        std::cout << "[INFO] TriMesh::importOBJ(): Normals not provided, compute them " << std::endl;
+        infoLog() << "TriMesh::importOBJ(): Normals not provided, compute them ";
         computeNormals();
     }
 
     if(m_texcoords.size() == 0) 
-        std::cout << "[INFO] TriMesh::importOBJ(): UV coords not provided " << std::endl;
+        infoLog() << "TriMesh::importOBJ(): UV coords not provided ";
 
     return true;
 }

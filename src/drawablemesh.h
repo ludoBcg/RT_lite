@@ -18,6 +18,7 @@
 #include <lodepng.h>
 
 #include "trimesh.h"
+#include "GLtools.h"
 
 // The attribute locations we will use in the vertex shader
 enum AttributeLocation 
@@ -94,8 +95,7 @@ class DrawableMesh
         inline void setAlbedoTexFlag(bool _useAlbedoTex) 
         { 
             if(!m_uvProvided && _useAlbedoTex)
-            if(!m_uvProvided && _useAlbedoTex)
-                std::cerr << "[WARNING] DrawableMesh::setAlbedoTexFlag(): No UV coords available" << std::endl;
+                warningLog() << "DrawableMesh::setAlbedoTexFlag(): No UV coords available";
             m_useAlbedoTex = _useAlbedoTex; 
         }
         /*! \fn setEnvMapReflecFlag */
@@ -108,11 +108,11 @@ class DrawableMesh
             if(_useNormalMap)
             {
                 if(!m_uvProvided)
-                    std::cerr << "[WARNING] DrawableMesh::setNormalMapFlag(): No UV coords available" << std::endl;
+                    warningLog() << "DrawableMesh::setNormalMapFlag(): No UV coords available";
                 if(!m_tangentProvided)
-                    std::cerr << "[WARNING] DrawableMesh::setNormalMapFlag(): No tangent coords available" << std::endl;
+                    warningLog() << "DrawableMesh::setNormalMapFlag(): No tangent coords available";
                 if(!m_bitangentProvided)
-                    std::cerr << "[WARNING] DrawableMesh::setNormalMapFlag(): No bitangent coords available" << std::endl;
+                    warningLog() << "DrawableMesh::setNormalMapFlag(): No bitangent coords available";
             }
             m_useNormalMap = _useNormalMap; 
         }
@@ -120,14 +120,14 @@ class DrawableMesh
         inline void setPBRFlag(bool _usePBR) 
         { 
             if(!m_uvProvided && _usePBR)
-                std::cerr << "[WARNING] DrawableMesh::setPBRFlag(): No UV coords available" << std::endl;
+                warningLog() << "DrawableMesh::setPBRFlag(): No UV coords available";
             m_usePBR = _usePBR; 
         }
         /*! \fn setAmbMapFlag */
         inline void setAmbMapFlag(bool _useAmbMap) 
         { 
             if(!m_uvProvided && _useAmbMap)
-                std::cerr << "[WARNING] DrawableMesh::setAmbMapFlag(): No UV coords available" << std::endl;
+                warningLog() << "DrawableMesh::setAmbMapFlag(): No UV coords available";
             m_useAmbMap = _useAmbMap; 
         }
         /*! \fn setShadowMapFlag */
@@ -180,7 +180,7 @@ class DrawableMesh
         * \brief Create mesh VAO and VBOs, calling fillVAO().
         * \param _triMesh : Mesh to update mesh VAO and VBOs from
         */
-        void createMeshVAO(TriMesh* _triMesh);
+        void createMeshVAO(TriMesh& _triMesh);
 
         /*!
         * \fn createMeshVAO
@@ -198,14 +198,14 @@ class DrawableMesh
         * \param _centerCoords : center of the scene (for floor quad only) 
         * \param _radScene : Radius of the scene (for floor quad only) 
         */
-        void createCubeVAO(glm::vec3 _centerCoords, float _radScene);
+        void createCubeVAO(glm::vec3& _centerCoords, float _radScene);
 
         /*!
         * \fn updateMeshVAO
         * \brief Update mesh VAO and VBOs, calling fillVAO().
         * \param _triMesh : Mesh to update mesh VAO and VBOs from
         */
-        void updateMeshVAO(TriMesh* _triMesh);
+        void updateMeshVAO(TriMesh& _triMesh);
 
         /*!
         * \fn createVAO
@@ -213,7 +213,7 @@ class DrawableMesh
         * \param _triMesh : Mesh to fill mesh VAO and VBOs from
         * \param _create : true to init the VBOs and VAO, false to update them 
         */
-        void fillVAO(TriMesh* _triMesh, bool _create);
+        void fillVAO(TriMesh& _triMesh, bool _create);
 
         /*!
         * \fn draw
@@ -226,7 +226,8 @@ class DrawableMesh
         * \param _lightCol : RGB color of the light
         * \param _lightMat : Projection-View matric of the light camera
         */
-        void draw(GLuint _program, glm::mat4 _modelMat, glm::mat4 _viewMat, glm::mat4 _projMat, glm::vec3 _lightPos, glm::vec3 _camPos, glm::vec3 _lightCol, glm::mat4 _lightMat, float _distLightMax);
+        void draw(GLuint _program, glm::mat4& _modelMat, glm::mat4& _viewMat, glm::mat4& _projMat,
+                  glm::vec3& _lightPos, glm::vec3& _camPos, glm::vec3& _lightCol, glm::mat4& _lightMat, float _distLightMax);
 
         /*!
         * \fn draw
@@ -236,7 +237,7 @@ class DrawableMesh
         * \param _viewMat :camera view matrix
         * \param _projMat :camera projection matrix
         */
-        void drawSkyBox(GLuint _program, glm::mat4 _viewMat, glm::mat4 _projMat);
+        void drawSkyBox(GLuint _program, glm::mat4& _viewMat, glm::mat4& _projMat);
 
         /*!
         * \fn drawScreenQuad
@@ -259,7 +260,7 @@ class DrawableMesh
         * \param _radius : neighborhood radius for SSAO computation
         * \param _screenWidth, _screenHeight : window dimensions
         */
-        void drawScreenQuadSSAO(GLuint _program, glm::mat4 _projMat, GLuint _posTex, GLuint _normalTex, float _radius, float _screenWidth, float _screenHeight);
+        void drawScreenQuadSSAO(GLuint _program, glm::mat4& _projMat, GLuint _posTex, GLuint _normalTex, float _radius, float _screenWidth, float _screenHeight);
 
         /*!
         * \fn drawScreenQuadSSLR
@@ -274,7 +275,8 @@ class DrawableMesh
         * \param _radius : neighborhood radius for SSLR computation
         * \param _screenWidth, _screenHeight : window dimensions
         */
-        void drawScreenQuadSSLR(GLuint _program, glm::mat4 _modelMat, glm::mat4 _viewMat, glm::mat4 _projMat, GLuint _posTex, GLuint _normalTex, GLuint _screenTex, float _radius, float _screenWidth, float _screenHeight);
+        void drawScreenQuadSSLR(GLuint _program, glm::mat4& _modelMat, glm::mat4& _viewMat, glm::mat4& _projMat,
+                                GLuint _posTex, GLuint _normalTex, GLuint _screenTex, float _radius, float _screenWidth, float _screenHeight);
 
         /*!
         * \fn drawScreenQuadFinal
@@ -287,7 +289,8 @@ class DrawableMesh
         * \param _screenTex : screen-space scene rendering texture
         * \param _occType : 1 for SSAO, 2 for SSLR
         */
-        void drawScreenQuadFinal(GLuint _program, glm::mat4 _modelMat, glm::mat4 _viewMat, glm::mat4 _projMat, GLuint _ssaotex, GLuint _screenTex, int _occType );
+        void drawScreenQuadFinal(GLuint _program, glm::mat4& _modelMat, glm::mat4& _viewMat, glm::mat4& _projMat,
+                                 GLuint _ssaotex, GLuint _screenTex, int _occType );
 
         /*!
         * \fn drawTex
@@ -298,7 +301,7 @@ class DrawableMesh
         * \param _projMat :camera projection matrix
         * \param _tex : texture to map
         */
-        void drawTex(GLuint _program, glm::mat4 _modelMat, glm::mat4 _viewMat, glm::mat4 _projMat, GLuint _tex );
+        void drawTex(GLuint _program, glm::mat4& _modelMat, glm::mat4& _viewMat, glm::mat4& _projMat, GLuint _tex );
 
         /*!
         * \fn drawShadow
@@ -306,7 +309,7 @@ class DrawableMesh
         * \param _program : shader program
         * \param _lvp : light view-projection matrix
         */
-        void drawShadow(GLuint _program, glm::mat4 _lvp);
+        void drawShadow(GLuint _program, glm::mat4& _lvp);
 
         /*!
         * \fn drawGbuffer
@@ -317,7 +320,7 @@ class DrawableMesh
         * \param _projMat :camera projection matrix
         * \param _isFloor : true if the mesh to draw is the floor quad
         */
-        void drawGbuffer(GLuint _program, glm::mat4 _modelMat, glm::mat4 _viewMat, glm::mat4 _projMat, bool _isFloor);
+        void drawGbuffer(GLuint _program, glm::mat4& _modelMat, glm::mat4& _viewMat, glm::mat4& _projMat, bool _isFloor);
 
         /*!
         * \fn loadAlbedoTex
