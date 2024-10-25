@@ -52,13 +52,15 @@ Sources are mentioned as commentaries in the codes, whenever one of these algori
 ## 3. EXTERNAL DEPENDENCIES
 
 
-All external dependencies are open-source libraries.   
-For convenience, they are already provided in the "RT_lite/external" folder.
+All external dependencies are open-source libraries.
 
+GLtools.h and other libraries are provided in the [libs](https://github.com/ludoBcg/libs) repository. 
+
+External dependencies used for this project are:
 
 * [GLEW (The OpenGL Extension Wrangler Library)](http://glew.sourceforge.net/)
   
-* [GLM (OpenGL Mathematics)](https://glm.g-truc.net/0.9.9/)
+* [GLM (OpenGL Mathematics)](https://github.com/g-truc/glm)
 
 * [GLFW (Graphics Library Framework)](https://www.glfw.org/)
 
@@ -88,7 +90,7 @@ For optimal rendering quality the meshes should be watertight, and should contai
 ## 5. COMPILATION
 
 
-RT_lite is provided as a ready-to-build folder with a CMakeList. 
+RT_lite is provided as a ready-to-build folder with a CMakeList. Make sure that the path to dependencies points towards the *libs* folder.
 
 The only requirement are:
 * C++ compiler
