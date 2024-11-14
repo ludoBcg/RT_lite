@@ -70,9 +70,9 @@ set(IMGUI_BCK "${IMGUI_DIR}/backends/imgui_impl_glfw.h"
 include_directories(SYSTEM "${IMGUI_DIR}")
 include_directories(SYSTEM "${IMGUI_DIR}/backends")
 
-# lodepng
-aux_source_directory("${LIBS_DIR}/third_party/lodepng" PROJECT_SRCS)
-include_directories(SYSTEM "${LIBS_DIR}/third_party/lodepng")
+
+# STB
+include_directories(SYSTEM "${LIBS_DIR}/third_party/stb")
 
 
 ################################# BUILD PROJECT ######################
