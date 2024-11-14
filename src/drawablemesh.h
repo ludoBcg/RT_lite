@@ -15,8 +15,6 @@
 #define QT_NO_OPENGL_ES_2
 #include <GL/glew.h>
 
-#include <lodepng.h>
-
 #include "trimesh.h"
 #include "GLtools.h"
 

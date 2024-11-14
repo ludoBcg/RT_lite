@@ -9,6 +9,9 @@
 
 #include "drawablemesh.h"
 
+#define STB_IMAGE_IMPLEMENTATION
+#include <stb_image.h>
+
 
 DrawableMesh::DrawableMesh()
 {
@@ -867,13 +870,10 @@ void DrawableMesh::drawGbuffer(GLuint _program, glm::mat4& _modelMat, glm::mat4&
 
 GLuint DrawableMesh::load2DTexture(const std::string& _filename, bool _repeat)
 {
-    std::vector<unsigned char> data;
-    unsigned width, height;
-    unsigned error = lodepng::decode(data, width, height, _filename);
-    if (error != 0) 
-    {
-        errorLog() << "DrawableMesh::load2DTexture(): " << lodepng_error_text(error);
-        std::exit(EXIT_FAILURE);
+    int width, height, nbChannels;
+    stbi_uc* data = stbi_load(_filename.c_str(), &width, &height, &nbChannels, STBI_rgb_alpha);
+    if (!data) {
+        errorLog() << "DrawableMesh::load2DTexture(): failed to load texture image!";
     }
 
     GLuint texture;
@@ -891,8 +891,10 @@ GLuint DrawableMesh::load2DTexture(const std::string& _filename, bool _repeat)
     }
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, &(data[0]));
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
     glBindTexture(GL_TEXTURE_2D, 0);
+
+    stbi_image_free(data);
 
     return texture;
 }
@@ -909,17 +911,14 @@ GLuint DrawableMesh::loadCubemap(const std::string& _dirname)
     };
     const unsigned int num_sides = 6; 
 
-    std::vector<unsigned char> data[num_sides];
-    unsigned int width;
-    unsigned int height;
+    std::vector<stbi_uc* > data;
+    int width, height, nbChannels;
     for (unsigned int i = 0; i < num_sides; ++i) 
     {
         std::string filename = _dirname + "/" + filenames[i];
-        unsigned int error = lodepng::decode(data[i], width, height, filename);
-        if (error != 0) 
-        {
-            errorLog() << "DrawableMesh::loadCubemap(): " << lodepng_error_text(error);
-            isValid = false;
+        data.push_back(stbi_load(filename.c_str(), &width, &height, &nbChannels, STBI_rgb_alpha));
+        if (!data[i]) {
+            errorLog() << "DrawableMesh::load2DTexture(): failed to load texture image!";
         }
     }
 
@@ -935,7 +934,8 @@ GLuint DrawableMesh::loadCubemap(const std::string& _dirname)
         glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
         for (unsigned int i = 0; i < num_sides; ++i) 
         {
-            glTexImage2D(targets[i], 0, GL_SRGB8_ALPHA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, &(data[i][0]));
+            glTexImage2D(targets[i], 0, GL_SRGB8_ALPHA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data[i]);
+            stbi_image_free(data[i]);
         }
         glGenerateMipmap(GL_TEXTURE_CUBE_MAP);
         glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
