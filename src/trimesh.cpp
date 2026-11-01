@@ -186,6 +186,7 @@ void TriMesh::computeNormals()
     std::int32_t vertexIndex0, vertexIndex1, vertexIndex2;
     glm::vec3 normal;
     int numIndices = m_indices.size();
+
     for (int i = 0; i < numIndices; i += 3) 
     {
         vertexIndex0 = m_indices[i];
@@ -196,7 +197,7 @@ void TriMesh::computeNormals()
         m_normals[vertexIndex1] += normal;
         m_normals[vertexIndex2] += normal;
     }
-
+ 
     int numNormals = (int)m_normals.size();
     for (int i = 0; i < numNormals; i++) 
     {
@@ -270,7 +271,7 @@ bool TriMesh::importOBJ(const std::string& _filename)
                     ((a.x == b.x) & (a.y == b.y) & (a.z < b.z));
         }
     };
-
+    
     const std::string VERTEX_LINE("v ");
     const std::string TEXCOORD_LINE("vt ");
     const std::string NORMAL_LINE("vn ");
@@ -323,7 +324,7 @@ bool TriMesh::importOBJ(const std::string& _filename)
             // Ignore line
         }
     }
-
+    
     // Rewind file
     f.clear();
     f.seekg(0);

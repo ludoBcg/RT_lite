@@ -135,7 +135,6 @@ static int m_fileMesh = 0;
 const char *m_fileBasicMeshList[] = { "armadillo",
                                       "gargoyle",
                                       "dragon",
-                                      "sphinx",
                                       "teapot"  };
 const char *m_fileUVMeshList[] =    { "bunny_UV",
                                       "head_UV",
@@ -443,13 +442,11 @@ void displayLighting()
         glViewport(0, 0, TEX_WIDTH, TEX_HEIGHT);
     }
 
-
     m_drawMesh->setShadowMap(m_shadowMapTex);
     m_drawFloor->setShadowMap(m_shadowMapTex);
 
     // Clear window with background color
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
 
 
     // build ModelView matrix
@@ -469,12 +466,13 @@ void displayLighting()
 
     // draw objects
     glm::vec3 lightEuclidPos = GLtools::sphericalToEuclidean(m_lightSpherePos);
+
     m_drawMesh->draw(m_programLighting, modelMat, viewMat, projMat, lightEuclidPos, m_camPos, m_lightCol, lightSpaceMat, m_maxDistLight);
 
     if(m_isFloorOn && !m_isTSDOn)
         m_drawFloor->draw(m_programLighting, modelMat, viewMat, projMat, lightEuclidPos, m_camPos, m_lightCol, lightSpaceMat, m_maxDistLight);
 
-
+    
     // draw sky box
     if(m_isEnvMapOn && !m_isTSDOn)
     {
@@ -484,7 +482,6 @@ void displayLighting()
 
         m_drawSkybox->drawSkyBox(m_programSkybox, v, p);
     }
-
 
     if( m_isTSDOn || m_isSSAOOn || m_isSSLROn)
     {
@@ -958,7 +955,7 @@ void runGUI()
                         m_triMesh->computeTB();
                     }
                     initScene();
-
+ 
                     // setup mesh rendering
                     m_drawMesh = std::make_unique<DrawableMesh>();
                     m_drawMesh->createMeshVAO(*m_triMesh);
@@ -968,7 +965,7 @@ void runGUI()
                     m_drawMesh->setShadowMapFlag(m_isShadowOn);
                     m_drawMesh->setSimTransmitFlag(m_isSimTransmitOn);
                     m_drawMesh->setTSDFlag(m_isTSDOn);
-                    
+
                     if(m_modelType == 2 && m_fileMesh == 0)
                     {
                         // load corresponding PBR textures
